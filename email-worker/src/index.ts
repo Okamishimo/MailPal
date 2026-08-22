@@ -254,6 +254,16 @@ export async function handleEmail(
 	}
 }
 
+/**
+ * This Worker only handles inbound email — it deliberately exposes no HTTP API.
+ * Every HTTP request gets a bare 404 so that, even if the workers.dev URL is
+ * left enabled, nobody can read data or probe behavior over HTTP.
+ */
+export async function handleFetch(): Promise<Response> {
+	return new Response(null, { status: 404 });
+}
+
 export default {
-	email: handleEmail
+	email: handleEmail,
+	fetch: handleFetch
 } satisfies ExportedHandler<Env>;

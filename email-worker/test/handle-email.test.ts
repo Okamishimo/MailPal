@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { KVNamespace } from '@cloudflare/workers-types';
-import { appendLog } from '../src/index.js';
+import { appendLog, handleFetch } from '../src/index.js';
 import {
 	MemoryKV,
 	asKV,
@@ -14,6 +14,14 @@ import {
 beforeEach(() => {
 	vi.spyOn(console, 'log').mockImplementation(() => {});
 	vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+describe('HTTP surface', () => {
+	it('returns an empty 404 for HTTP requests so nothing is exposed over the URL', async () => {
+		const res = await handleFetch();
+		expect(res.status).toBe(404);
+		expect(await res.text()).toBe('');
+	});
 });
 
 describe('envelope recipient parsing', () => {

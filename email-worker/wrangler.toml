@@ -1,6 +1,10 @@
 name = "nythros-mail"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+# This is an email-only worker (no `fetch` handler), so it needs no public
+# HTTP endpoint. Disabling the workers.dev URL removes that attack surface;
+# inbound mail is delivered via Email Routing, independent of these URLs.
+workers_dev = false
 compatibility_flags = ["nodejs_compat"]
 preview_urls = false
 
