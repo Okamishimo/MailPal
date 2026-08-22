@@ -185,6 +185,17 @@
 		}
 	}
 
+	function activateRow() {
+		if (selectionMode) onSelect?.(!selected);
+		else toggleExpand();
+	}
+
+	function handleRowKeydown(e: KeyboardEvent) {
+		if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+		e.preventDefault();
+		activateRow();
+	}
+
 	function toggleTagOnAlias(name: string) {
 		if (editTags.includes(name)) {
 			editTags = editTags.filter((t) => t !== name);
@@ -344,14 +355,19 @@
 >
 	<!-- ── Collapsed row ─────────────────────────────────────────────────── -->
 	<div
-		class="group flex items-center gap-4 px-4 py-3 {selectionMode ? 'cursor-pointer' : ''}"
+		class="group flex cursor-pointer items-center gap-2 px-3 py-3 sm:gap-4 sm:px-4"
+		role="button"
+		tabindex="0"
+		aria-label={selectionMode ? `${selected ? '取消選取' : '選取'} ${fullAddress}` : `${expanded ? '收合' : '編輯'} ${fullAddress}`}
+		aria-expanded={selectionMode ? undefined : expanded}
 		onclick={(e) => {
 			if ((e.target as HTMLElement).closest('button, a, input, textarea, select')) return;
-			onSelect?.(!selected);
+			activateRow();
 		}}
+		onkeydown={handleRowKeydown}
 	>
 
-		<div class="flex items-center gap-3 shrink-0 flex-1 min-w-0">
+		<div class="flex min-w-0 flex-1 shrink-0 items-center gap-2 sm:gap-3">
 			<!-- Selection checkbox (only in selection mode) -->
 			{#if selectionMode}
 				<button
@@ -359,13 +375,13 @@
 					onclick={(e) => { e.stopPropagation(); onSelect?.(!selected); }}
 					aria-label="選取 {fullAddress}"
 					aria-pressed={selected}
-					class="shrink-0 w-3.5 h-3.5 rounded border transition-all
+					class="h-5 w-5 shrink-0 rounded border transition-all sm:h-3.5 sm:w-3.5
 						{selected
 							? 'bg-app-accent border-app-accent flex items-center justify-center'
 							: 'border-app-border bg-app-hover hover:border-app-accent/50'}"
 				>
 					{#if selected}
-						<svg class="w-2 h-2 text-app-bg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+						<svg class="h-3 w-3 text-app-bg sm:h-2 sm:w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3.5" d="M5 13l4 4L19 7" />
 						</svg>
 					{/if}
@@ -378,10 +394,16 @@
 
 			<!-- Address + inline tags + note preview -->
 			<div class="flex-1 min-w-0">
-				<div class="flex items-center gap-1.5 flex-wrap">
+				<div class="flex min-w-0 items-center gap-1.5 sm:hidden">
+					<span class="truncate text-sm font-semibold text-app-text" title={fullAddress}>{fullAddress}</span>
+					<div class="shrink-0">
+						<CopyButton text={fullAddress} />
+					</div>
+				</div>
+				<div class="hidden items-center gap-1.5 sm:flex sm:flex-wrap">
 					<span class="font-semibold text-app-text text-sm">{alias.localPart}</span>
 					<span class="text-app-muted text-sm shrink-0">@{alias.domain}</span>
-					<div class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+					<div class="shrink-0 opacity-0 transition-opacity group-hover:opacity-100">
 						<CopyButton text={fullAddress} />
 					</div>
 				</div>
@@ -496,7 +518,7 @@
 				disabled={toggling}
 				aria-pressed={alias.enabled}
 				aria-label={alias.enabled ? '停用別名' : '啟用別名'}
-				class="flex items-center justify-end gap-2 min-w-[5.5rem] group/toggle disabled:opacity-60"
+				class="group/toggle -m-2 flex min-w-0 items-center justify-end gap-2 p-2 disabled:opacity-60 sm:m-0 sm:min-w-[5.5rem] sm:p-0"
 			>
 				<div
 					class="w-3 h-3 rounded-full shrink-0 transition-all group-hover/toggle:scale-110 group-hover/toggle:brightness-125
@@ -520,7 +542,7 @@
 				onclick={toggleExpand}
 				aria-expanded={expanded}
 				aria-label={expanded ? '收合' : '編輯別名'}
-				class="p-1.5 rounded transition-colors shrink-0
+				class="shrink-0 rounded p-2 transition-colors sm:p-1.5
 					{expanded
 						? 'text-app-accent bg-app-accent/10'
 						: 'text-app-muted/70 hover:text-app-muted hover:bg-app-hover'}"
@@ -564,7 +586,7 @@
 			</div>
 
 			{#if activeTab === 'settings'}
-			<div class="px-4 pb-5 space-y-5">
+			<div class="space-y-5 px-3 pb-4 sm:px-4 sm:pb-5">
 				<div class="pt-4 space-y-3">
 
 					<!-- Destination override -->
@@ -642,7 +664,7 @@
 							<form
 								onsubmit={handleCreateTag}
 								transition:slide={{ duration: 150, easing: cubicOut }}
-								class="flex items-center gap-2 p-2.5 rounded-lg border border-app-border bg-app-bg/40"
+							class="flex flex-col gap-2 rounded-lg border border-app-border bg-app-bg/40 p-2.5 sm:flex-row sm:items-center"
 							>
 								<ColorPicker bind:value={newTagColor} />
 								<label for="new-tag-{alias.domain}-{alias.localPart}" class="sr-only">標籤名稱</label>
@@ -657,7 +679,7 @@
 								{#if newTagError}
 									<span class="text-xs text-red-400 shrink-0">{newTagError}</span>
 								{/if}
-								<div class="flex gap-1 shrink-0">
+							<div class="flex shrink-0 gap-1 self-end sm:self-auto">
 									<button
 										type="button"
 										onclick={() => { showNewTagForm = false; newTagName = ''; newTagError = ''; }}
@@ -803,8 +825,8 @@
 				</div>
 
 				<!-- Stats -->
-				<div class="grid grid-cols-3 gap-2 pt-1 border-t border-app-border/50">
-					<div class="bg-app-hover/60 rounded-lg p-2.5 pt-3">
+				<div class="grid grid-cols-2 gap-2 border-t border-app-border/50 pt-1 sm:grid-cols-3">
+					<div class="col-span-2 rounded-lg bg-app-hover/60 p-2.5 pt-3 sm:col-span-1">
 						<div class="text-[11px] text-app-muted mb-1">已轉寄</div>
 						<div class="text-base font-bold text-app-text">{alias.forwardedCount}</div>
 					</div>
@@ -821,19 +843,19 @@
 				</div>
 
 				<!-- Footer: delete + save -->
-				<div class="flex items-center justify-between gap-2">
+				<div class="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
 					<!-- Delete -->
 					<AlertDialog.Root>
 						<AlertDialog.Trigger
 							type="button"
 							disabled={deleting}
-							class="px-3 py-1.5 text-xs text-red-400/80 hover:text-red-400 border border-red-400/20 hover:border-red-400/50 rounded-lg transition-colors disabled:opacity-40"
+							class="w-full rounded-lg border border-red-400/20 px-3 py-2 text-xs text-red-400/80 transition-colors hover:border-red-400/50 hover:text-red-400 disabled:opacity-40 sm:w-auto sm:py-1.5"
 						>
 							{deleting ? '刪除中…' : '刪除地址'}
 						</AlertDialog.Trigger>
 						<AlertDialog.Portal>
 							<AlertDialog.Overlay class="fixed inset-0 bg-black/65 backdrop-blur-sm z-40" />
-							<AlertDialog.Content class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl border border-app-border bg-app-surface shadow-2xl w-full max-w-sm text-app-text p-6 focus:outline-none">
+							<AlertDialog.Content class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-app-border bg-app-surface p-5 text-app-text shadow-2xl focus:outline-none sm:p-6">
 								<AlertDialog.Title class="font-semibold text-app-text mb-1">要刪除地址嗎？</AlertDialog.Title>
 								<AlertDialog.Description class="text-sm text-app-muted mb-5">
 									<span class="font-mono text-app-text">{fullAddress}</span> 將會永久刪除。
@@ -854,7 +876,7 @@
 					</AlertDialog.Root>
 
 					<!-- Save / error -->
-					<div class="flex items-center gap-2">
+					<div class="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
 						{#if saveError}
 							<span class="text-xs text-red-400">{saveError}</span>
 						{/if}

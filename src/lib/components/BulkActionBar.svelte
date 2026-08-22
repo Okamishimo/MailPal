@@ -20,7 +20,7 @@
 {#if selectedCount > 0}
 	<div
 		transition:slide={{ duration: 200, easing: cubicOut, axis: 'y' }}
-		class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-2 pl-3 rounded-2xl border border-app-border bg-app-surface shadow-2xl shadow-black/30"
+		class="fixed bottom-3 left-3 right-3 z-50 flex flex-wrap items-center justify-center gap-1 rounded-2xl border border-app-border bg-app-surface p-2 shadow-2xl shadow-black/30 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:flex-nowrap sm:justify-start sm:pl-3"
 	>
 		<span class="text-xs font-medium text-app-muted pr-2 border-r border-app-border tabular-nums">
 			已選取 {selectedCount} 個
@@ -34,7 +34,7 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 			</svg>
 			啟用
-			<kbd class="ml-0.5 px-1 py-0.5 rounded border border-app-border/60 bg-app-hover/60 text-[12px] font-mono text-app-muted/70">e</kbd>
+			<kbd class="ml-0.5 hidden px-1 py-0.5 rounded border border-app-border/60 bg-app-hover/60 text-[12px] font-mono text-app-muted/70 sm:inline">e</kbd>
 		</button>
 		<button
 			type="button"
@@ -46,7 +46,7 @@
 				<path stroke-linecap="round" stroke-width="2" d="M4.93 4.93l14.14 14.14" />
 			</svg>
 			停用
-			<kbd class="ml-0.5 px-1 py-0.5 rounded border border-app-border/60 bg-app-hover/60 text-[12px] font-mono text-app-muted/70">d</kbd>
+			<kbd class="ml-0.5 hidden px-1 py-0.5 rounded border border-app-border/60 bg-app-hover/60 text-[12px] font-mono text-app-muted/70 sm:inline">d</kbd>
 		</button>
 		<button
 			type="button"
@@ -57,7 +57,7 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
 			</svg>
 			刪除
-			<kbd class="ml-0.5 px-1 py-0.5 rounded border border-red-400/30 bg-red-400/10 text-[12px] font-mono text-red-400/70">⌫</kbd>
+			<kbd class="ml-0.5 hidden px-1 py-0.5 rounded border border-red-400/30 bg-red-400/10 text-[12px] font-mono text-red-400/70 sm:inline">⌫</kbd>
 		</button>
 		<button
 			type="button"

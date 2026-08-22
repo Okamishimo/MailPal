@@ -24,11 +24,11 @@
 </script>
 
 <dl
-	class="grid grid-cols-4 divide-x divide-app-border rounded-xl border border-app-border bg-app-surface overflow-hidden"
+	class="grid grid-cols-2 overflow-hidden rounded-xl border border-app-border bg-app-surface sm:grid-cols-4 sm:divide-x sm:divide-app-border"
 	aria-label="總覽統計資料"
 >
 	{#each stats as stat (stat.label)}
-		<div class="px-4 py-3 flex items-center justify-start gap-2">
+		<div class="flex items-center justify-start gap-2 border-b border-app-border px-3 py-3 even:border-l sm:border-b-0 sm:border-l-0 sm:px-4 [&:nth-last-child(-n+2)]:border-b-0">
 			<dd class="text-lg font-bold text-app-text tabular-nums leading-tight" title={stat.title}>{stat.value}</dd>
 			<dt class="text-[11px] text-app-muted uppercase tracking-wide leading-none">{stat.label}</dt>
 		</div>

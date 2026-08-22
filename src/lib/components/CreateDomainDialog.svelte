@@ -75,7 +75,7 @@
 <Dialog {open} title="新增網域" onClose={handleClose}>
 	{#if createdDomain}
 		<!-- ── Success + Cloudflare setup guide ───────────────────────────── -->
-		<div class="p-6 space-y-5">
+		<div class="space-y-5 p-4 sm:p-6">
 			<div class="flex items-center gap-3 p-3.5 rounded-xl bg-app-accent/10 border border-app-accent/20">
 				<div class="w-7 h-7 rounded-full bg-app-accent/15 flex items-center justify-center shrink-0">
 					<svg class="w-3.5 h-3.5 text-app-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -128,7 +128,7 @@
 		</div>
 	{:else}
 		<!-- ── Creation form ──────────────────────────────────────────────── -->
-		<form onsubmit={submit} class="p-6 space-y-4">
+		<form onsubmit={submit} class="space-y-4 p-4 sm:p-6">
 			<div>
 				<div class="flex items-center justify-between mb-1.5">
 					<label for="ed-target" class="text-sm font-medium text-app-text">

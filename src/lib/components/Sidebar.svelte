@@ -15,7 +15,9 @@
 		onAddDomain,
 		onEditDomain,
 		onOpenSettings,
-		focusSearchTrigger = 0
+		focusSearchTrigger = 0,
+		mobileOpen = false,
+		onMobileClose
 	}: {
 		domains: DomainConfig[];
 		aliasCounts: Record<string, number>;
@@ -30,6 +32,8 @@
 		onEditDomain: (domain: DomainConfig) => void;
 		onOpenSettings: () => void;
 		focusSearchTrigger?: number;
+		mobileOpen?: boolean;
+		onMobileClose?: () => void;
 	} = $props();
 
 	let searchInputEl = $state<HTMLInputElement | null>(null);
@@ -41,16 +45,56 @@
 			searchInputEl.select();
 		}
 	});
+
+	function selectDomain(domain: string | null) {
+		onSelectDomain(domain);
+		onMobileClose?.();
+	}
+
+	function addDomain() {
+		onMobileClose?.();
+		onAddDomain();
+	}
+
+	function editDomain(domain: DomainConfig) {
+		onMobileClose?.();
+		onEditDomain(domain);
+	}
+
+	function openSettings() {
+		onMobileClose?.();
+		onOpenSettings();
+	}
 </script>
 
+{#if mobileOpen}
+	<button
+		type="button"
+		class="absolute inset-0 z-30 bg-black/60 backdrop-blur-[1px] md:hidden"
+		onclick={onMobileClose}
+		aria-label="關閉導覽選單"
+	></button>
+{/if}
+
 <aside
-	class="w-64 shrink-0 flex flex-col bg-app-sidebar border-r border-app-border"
+	class="absolute inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] shrink-0 flex-col border-r border-app-border bg-app-sidebar shadow-2xl transition-transform duration-200 ease-out md:static md:w-64 md:max-w-none md:translate-x-0 md:shadow-none
+		{mobileOpen ? 'translate-x-0' : '-translate-x-full'}"
 	aria-label="側邊欄"
 >
 	<!-- Brand -->
 	<div class="px-5 py-5 flex items-center gap-3">
 		<img src="/favicon.svg" alt="" class="w-8 h-8 shrink-0" aria-hidden="true" />
 		<span class="text-base font-bold tracking-tight text-app-text">MailPal</span>
+		<button
+			type="button"
+			onclick={onMobileClose}
+			class="ml-auto flex h-10 w-10 items-center justify-center rounded-lg text-app-muted transition-colors hover:bg-app-hover hover:text-app-text md:hidden"
+			aria-label="關閉導覽選單"
+		>
+			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+			</svg>
+		</button>
 	</div>
 
 	<!-- Search -->
@@ -78,7 +122,7 @@
 		</span>
 		<Tooltip.Root delayDuration={300}>
 			<Tooltip.Trigger
-				onclick={onAddDomain}
+				onclick={addDomain}
 				aria-label="新增網域"
 				class="w-5 h-5 rounded flex items-center justify-center text-app-muted hover:text-app-text hover:bg-app-hover transition-colors text-base leading-none"
 			>+</Tooltip.Trigger>
@@ -103,7 +147,7 @@
 				{!selectedDomain ? 'bg-app-hover' : 'hover:bg-app-hover/60'}"
 		>
 			<button
-				onclick={() => onSelectDomain(null)}
+				onclick={() => selectDomain(null)}
 				aria-current={!selectedDomain ? 'true' : undefined}
 				class="flex-1 flex items-center gap-2.5 px-3 py-2 text-sm transition-colors rounded-l-lg
 					{!selectedDomain ? 'text-app-text font-medium' : 'text-app-muted hover:text-app-text'}"
@@ -127,7 +171,7 @@
 					{active ? 'bg-app-hover' : 'hover:bg-app-hover/60'}"
 			>
 				<button
-					onclick={() => onSelectDomain(domain.domain)}
+					onclick={() => selectDomain(domain.domain)}
 					aria-current={active ? 'true' : undefined}
 					class="flex-1 flex items-center gap-2.5 px-3 py-2 text-sm transition-colors min-w-0 rounded-l-lg
 						{active ? 'text-app-text font-medium' : 'text-app-muted hover:text-app-text'}"
@@ -142,7 +186,7 @@
 
 				<Tooltip.Root delayDuration={300}>
 					<Tooltip.Trigger
-						onclick={() => onEditDomain(domain)}
+						onclick={() => editDomain(domain)}
 						aria-label="{domain.domain} 的設定"
 						class="p-1.5 opacity-0 group-hover/item:opacity-100 text-app-muted hover:text-app-text transition-all shrink-0 rounded"
 					>
@@ -185,6 +229,7 @@
 					<a
 						{...props}
 						href="/activity"
+						onclick={onMobileClose}
 						aria-label="活動紀錄"
 						class="flex h-10 w-10 items-center justify-center rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-accent/60 transition-colors"
 					>
@@ -209,7 +254,7 @@
 		<!-- Settings -->
 		<Tooltip.Root delayDuration={300}>
 			<Tooltip.Trigger
-				onclick={onOpenSettings}
+				onclick={openSettings}
 				aria-label="設定"
 				class="flex h-10 w-10 items-center justify-center rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-app-accent/60 transition-colors"
 			>

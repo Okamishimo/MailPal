@@ -63,10 +63,10 @@
 	}
 </script>
 
-<div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+<div class="mb-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:flex-wrap sm:justify-between">
 
 	<!-- Left: filter dropdowns -->
-	<div class="flex items-center gap-2">
+	<div class="flex min-w-0 items-center gap-2 overflow-x-auto">
 
 		<!-- Status dropdown -->
 		<DropdownMenu.Root>
@@ -187,7 +187,7 @@
 	</div>
 
 	<!-- Right: sort controls -->
-	<div class="flex items-center gap-0.5 ml-auto" role="group" aria-label="排序別名">
+	<div class="order-3 col-span-2 flex w-full items-center gap-0.5 overflow-x-auto pb-1 sm:order-none sm:ml-auto sm:w-auto sm:overflow-visible sm:pb-0" role="group" aria-label="排序別名">
 		<span class="text-xs text-app-muted/70 mr-1.5 select-none">排序</span>
 		{#each SORT_OPTIONS as opt (opt.field)}
 			{@const active = sortField === opt.field}
@@ -213,9 +213,9 @@
 		{/each}
 	</div>
 
-	<span class="w-px h-3.5 bg-app-border shrink-0 mr-2" aria-hidden="true"></span>
+	<span class="hidden h-3.5 w-px shrink-0 bg-app-border sm:block sm:mr-2" aria-hidden="true"></span>
 
-	<div class="flex items-center gap-1" role="group" aria-label="批次操作">
+	<div class="flex items-center justify-self-end gap-1" role="group" aria-label="批次操作">
 		<!-- Select-all (appears when selection mode is active) -->
 		{#if selectionMode}
 			<button
@@ -236,7 +236,7 @@
 			type="button"
 			onclick={onToggleSelection}
 			aria-pressed={selectionMode}
-			class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs transition-colors
+			class="inline-flex items-center gap-1 rounded-lg border px-2 py-2 text-xs transition-colors sm:py-1
 				{selectionMode
 					? 'border-app-hover bg-app-hover text-app-text font-medium'
 					: 'border-app-border text-app-muted hover:border-app-hover hover:text-app-text'}"

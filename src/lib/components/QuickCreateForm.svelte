@@ -98,10 +98,10 @@
 		</p>
 	{:else}
 		<form onsubmit={handleSubmit} aria-describedby={error ? errorId : undefined}>
-			<div class="flex flex-wrap items-start gap-2">
+			<div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start">
 				<!-- Local part input + @ domain display -->
 				<div
-					class="flex items-stretch rounded-lg border border-app-border bg-app-surface overflow-hidden focus-within:border-app-accent/60 transition-colors flex-1 min-w-48"
+					class="flex w-full min-w-0 flex-1 items-stretch overflow-hidden rounded-lg border border-app-border bg-app-surface transition-colors focus-within:border-app-accent/60"
 				>
 					<label for="new-local-part" class="sr-only">別名名稱</label>
 					<input
@@ -118,7 +118,7 @@
 					<!-- Domain selector: plain label when one domain, dropdown when multiple -->
 					{#if domains.length === 1}
 						<div
-							class="flex items-center px-3 border-l border-app-border text-app-muted text-sm whitespace-nowrap"
+							class="flex max-w-[45%] items-center truncate border-l border-app-border px-2 text-sm text-app-muted sm:max-w-none sm:px-3"
 							aria-hidden="true"
 						>
 							@{newDomain}
@@ -130,10 +130,10 @@
 							onValueChange={(v) => { if (v) newDomain = v; }}
 						>
 							<Select.Trigger
-								class="flex items-center gap-1.5 px-3 border-l border-app-border text-app-muted text-sm whitespace-nowrap hover:text-app-text transition-colors cursor-pointer outline-none"
+								class="flex max-w-[45%] items-center gap-1.5 border-l border-app-border px-2 text-sm text-app-muted outline-none transition-colors hover:text-app-text sm:max-w-none sm:px-3"
 								aria-label="選擇網域"
 							>
-								@{newDomain}
+								<span class="truncate">@{newDomain}</span>
 								<svg class="w-3 h-3 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
 								</svg>
@@ -226,7 +226,7 @@
 								sideOffset={22}
 								side="bottom"
 								align="end"
-								class="z-50 w-80 rounded-xl border border-app-border bg-app-surface shadow-xl p-3 space-y-3"
+								class="z-50 w-[calc(100vw-2rem)] max-w-80 rounded-xl border border-app-border bg-app-surface p-3 shadow-xl space-y-3"
 							>
 								<p class="text-xs font-semibold text-app-text">自動停用</p>
 
@@ -282,7 +282,7 @@
 					type="submit"
 					disabled={creating || !newDomain}
 					aria-busy={creating}
-					class="px-5 py-2.5 rounded-lg bg-app-accent text-app-bg text-sm border border-app-bg font-semibold hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+					class="w-full whitespace-nowrap rounded-lg border border-app-bg bg-app-accent px-5 py-2.5 text-sm font-semibold text-app-bg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
 				>
 					建立
 				</button>

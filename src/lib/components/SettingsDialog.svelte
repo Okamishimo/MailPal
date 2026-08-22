@@ -210,7 +210,7 @@
 </script>
 
 <Dialog open={open} title="設定" onClose={handleClose}>
-	<div class="p-6 space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
+	<div class="max-h-[calc(100dvh-8rem)] space-y-4 overflow-y-auto p-4 sm:p-6">
 
 		<!-- Section header -->
 		<div>
@@ -277,20 +277,20 @@
 				<label for="dest-email" class="block text-xs font-medium text-app-muted">
 					新增轉寄地址
 				</label>
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					<input
 						id="dest-email"
 						type="email"
 						bind:value={newEmail}
 						placeholder="you@gmail.com"
 						required
-						class="flex-1 px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted focus:outline-none focus:border-app-accent/60 transition-colors"
+					class="min-w-0 basis-full flex-1 rounded-lg border border-app-border bg-app-hover px-3 py-1.5 text-sm text-app-text placeholder:text-app-muted transition-colors focus:border-app-accent/60 focus:outline-none sm:basis-auto"
 					/>
 					<button
 						type="submit"
 						disabled={adding || !newEmail.trim()}
 						aria-busy={adding}
-						class="px-4 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+						class="flex-1 whitespace-nowrap rounded-lg bg-app-accent px-4 py-1.5 text-xs font-semibold text-app-bg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
 					>
 						{adding ? '新增中…' : '新增'}
 					</button>
@@ -352,7 +352,7 @@
 					></textarea>
 				</label>
 			</div>
-			<div class="flex items-center justify-end gap-2">
+			<div class="flex flex-wrap items-center justify-end gap-2">
 				{#if globalBlocklistError}
 					<span role="alert" class="text-xs text-red-400">{globalBlocklistError}</span>
 				{:else if globalBlocklistSaved}
@@ -405,15 +405,15 @@
 		{/if}
 
 		{#if showTagForm}
-			<form onsubmit={handleAddTag} class="space-y-2 pl-3">
-				<div class="flex gap-2 items-center">
+			<form onsubmit={handleAddTag} class="space-y-2 sm:pl-3">
+				<div class="flex flex-wrap items-center gap-2">
 					<ColorPicker bind:value={newTagColor} />
 					<input
 						type="text"
 						bind:value={newTagName}
 						placeholder="標籤名稱"
 						required
-						class="flex-1 px-3 py-1.5 w-full rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted focus:outline-none focus:border-app-accent/60 transition-colors"
+					class="min-w-[8rem] flex-1 rounded-lg border border-app-border bg-app-hover px-3 py-1.5 text-sm text-app-text placeholder:text-app-muted transition-colors focus:border-app-accent/60 focus:outline-none"
 					/>
 					<button
 						type="submit"

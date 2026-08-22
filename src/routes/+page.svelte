@@ -33,6 +33,7 @@
 	let selectedTags = $state<string[]>([]);
 	let search = $state('');
 	let forceShowOnboarding = $state<boolean>(false);
+	let mobileSidebarOpen = $state(false);
 
 	// Sort & filter
 	type SortField = 'name' | 'created' | 'lastUsed' | 'forwarded';
@@ -373,6 +374,7 @@
 				break;
 			}
 			case 'Escape':
+				if (mobileSidebarOpen) { mobileSidebarOpen = false; break; }
 				if (showShortcutsHelp) { showShortcutsHelp = false; break; }
 				if (focusedIdx >= 0) { focusedIdx = -1; break; }
 				if (selectedKeys.size > 0) { clearSelection(); break; }
@@ -411,7 +413,7 @@
 
 <OnboardingFlow onboarded={data.onboarded && !forceShowOnboarding} />
 
-<div class="flex {data.demo ? 'h-[calc(100vh-45px)]' : 'h-screen'} overflow-hidden bg-app-bg text-app-text">
+<div class="relative flex {data.demo ? 'h-[calc(100dvh-45px)]' : 'h-[100dvh]'} overflow-hidden bg-app-bg text-app-text">
 	<Sidebar
 		{domains}
 		{aliasCounts}
@@ -426,10 +428,31 @@
 		onEditDomain={(d) => (editingDomain = d)}
 		onOpenSettings={() => (showSettings = true)}
 		{focusSearchTrigger}
+		mobileOpen={mobileSidebarOpen}
+		onMobileClose={() => (mobileSidebarOpen = false)}
 	/>
 
-	<main id="main-content" class="flex-1 overflow-y-scroll" aria-label="別名">
-		<div class="max-w-4xl mx-auto px-8 py-8 space-y-8">
+	<main id="main-content" class="min-w-0 flex-1 overflow-y-auto overscroll-contain" aria-label="別名">
+		<header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-app-border bg-app-bg/95 px-4 backdrop-blur md:hidden">
+			<button
+				type="button"
+				onclick={() => (mobileSidebarOpen = true)}
+				class="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-app-muted transition-colors hover:bg-app-hover hover:text-app-text"
+				aria-label="開啟導覽選單"
+				aria-expanded={mobileSidebarOpen}
+			>
+				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+				</svg>
+			</button>
+			<img src="/favicon.svg" alt="" class="h-7 w-7 shrink-0" aria-hidden="true" />
+			<div class="min-w-0">
+				<p class="text-[11px] leading-none text-app-muted">MailPal</p>
+				<p class="mt-1 truncate text-sm font-semibold text-app-text">{selectedDomain ?? '所有地址'}</p>
+			</div>
+		</header>
+
+		<div class="mx-auto max-w-4xl space-y-6 px-4 py-5 sm:px-6 md:space-y-8 md:px-8 md:py-8">
 
 			<StatsBar {aliases} />
 
@@ -444,8 +467,8 @@
 			<section aria-labelledby="list-heading">
 
 				<!-- Heading + count -->
-				<div class="flex items-baseline gap-3 mb-4">
-					<h2 id="list-heading" class="text-xl font-bold text-app-text">
+				<div class="mb-4 flex min-w-0 items-baseline gap-3">
+					<h2 id="list-heading" class="truncate text-lg font-bold text-app-text sm:text-xl">
 						{selectedDomain ?? '所有地址'}
 					</h2>
 					<span class="text-sm text-app-muted" aria-live="polite" aria-atomic="true">

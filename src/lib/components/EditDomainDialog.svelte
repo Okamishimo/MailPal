@@ -74,7 +74,7 @@
 </script>
 
 <Dialog {open} title="網域設定" subtitle={domain.domain} onClose={onClose}>
-	<form onsubmit={submit} class="p-6 space-y-4">
+	<form onsubmit={submit} class="space-y-4 p-4 sm:p-6">
 		<div>
 			<div class="flex items-center justify-between mb-1.5">
 				<label for="ed-target" class="text-sm font-medium text-app-text">
@@ -152,7 +152,7 @@
 				<AlertDialog.Portal>
 					<AlertDialog.Overlay class="fixed inset-0 bg-black/65 backdrop-blur-sm z-40" />
 					<AlertDialog.Content
-						class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl border border-app-border bg-app-surface shadow-2xl w-full max-w-sm text-app-text p-6 focus:outline-none"
+					class="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-app-border bg-app-surface p-5 text-app-text shadow-2xl focus:outline-none sm:p-6"
 					>
 						<AlertDialog.Title class="font-semibold text-app-text mb-1">要刪除網域嗎？</AlertDialog.Title>
 						<AlertDialog.Description class="text-sm text-app-muted mb-5">
