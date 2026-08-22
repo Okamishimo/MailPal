@@ -2,6 +2,10 @@ name = "nythros-mail"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+preview_urls = false
+
+[observability.logs]
+enabled = true
 
 [[kv_namespaces]]
 binding = "KV"
