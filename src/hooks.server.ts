@@ -1,5 +1,7 @@
 import { redirect, type Handle } from '@sveltejs/kit';
+import { dev } from '$app/environment';
 import { verifySession, COOKIE_NAME } from '$lib/auth.js';
+import { verifyAccessJwt } from '$lib/access-jwt.js';
 import { DemoKV, type DemoDelta } from '$lib/demo-kv.js';
 
 const DEMO_STATE_COOKIE = 'demo_state';
@@ -8,7 +10,8 @@ const SECURITY_HEADERS: Record<string, string> = {
 	'X-Content-Type-Options': 'nosniff',
 	'X-Frame-Options': 'DENY',
 	'Referrer-Policy': 'strict-origin-when-cross-origin',
-	'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
+	'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -58,7 +61,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	if (!platform?.env?.KV) {
-		// During local dev without wrangler, allow through
+		// Local dev without wrangler: allow through so the UI is workable.
+		// In production a missing KV binding must FAIL CLOSED — otherwise a
+		// misconfigured deployment would silently disable all authentication.
+		if (!dev) {
+			return new Response('Service unavailable', {
+				status: 503,
+				headers: SECURITY_HEADERS
+			});
+		}
 		event.locals.authMode = 'cloudflare-access';
 		event.locals.authenticated = true;
 		const response = await resolve(event);
@@ -74,10 +85,28 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.authMode = authPassword ? 'password' : 'cloudflare-access';
 
 	if (event.locals.authMode === 'cloudflare-access') {
-		event.locals.authenticated = true;
+		const teamDomain = platform.env.CF_ACCESS_TEAM_DOMAIN;
+		const aud = platform.env.CF_ACCESS_AUD;
+		if (teamDomain && aud) {
+			// Cryptographically verify the Access JWT instead of trusting placement.
+			const token = event.request.headers.get('Cf-Access-Jwt-Assertion');
+			event.locals.authenticated = await verifyAccessJwt(token, teamDomain, aud);
+		} else {
+			// No Access verification configured: trust that Cloudflare Access is
+			// enforced in front of this origin. Set CF_ACCESS_TEAM_DOMAIN and
+			// CF_ACCESS_AUD to have the app verify the Access JWT itself.
+			if (!dev) {
+				console.warn(JSON.stringify({
+					message:
+						'cloudflare-access mode without CF_ACCESS_TEAM_DOMAIN/CF_ACCESS_AUD — Access JWT is not being verified'
+				}));
+			}
+			event.locals.authenticated = true;
+		}
 	} else {
 		const sealed = event.cookies.get(COOKIE_NAME);
-		event.locals.authenticated = await verifySession(sealed, authPassword!);
+		const sessionSecret = platform.env.SESSION_SECRET || authPassword!;
+		event.locals.authenticated = await verifySession(sealed, sessionSecret);
 	}
 
 	const pathname = event.url.pathname;
@@ -90,6 +119,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 				status: 401,
 				headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS }
 			});
+		}
+		// In cloudflare-access mode there is no password login page to send the
+		// user to, so a failed check is a hard 403 rather than a redirect loop.
+		if (event.locals.authMode === 'cloudflare-access') {
+			return new Response('Forbidden', { status: 403, headers: SECURITY_HEADERS });
 		}
 		throw redirect(302, '/login');
 	}

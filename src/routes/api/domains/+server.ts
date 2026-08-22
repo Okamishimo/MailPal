@@ -6,6 +6,7 @@ import type { DomainConfig } from '$lib/types.js';
 // RFC 1123 hostname validation (does not allow bare TLDs)
 const DOMAIN_RE = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const GET: RequestHandler = async ({ locals }) => {
 	const domains = await listDomains(locals.kv);
@@ -21,21 +22,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: '網域與轉寄地址為必填欄位' }, { status: 400 });
 	}
 
-	if (!DOMAIN_RE.test(domain)) {
+	// The email worker lowercases the recipient domain before lookup, so domains
+	// must be stored lowercase or mail to them would never match.
+	const normalizedDomain = domain.trim().toLowerCase();
+	if (!DOMAIN_RE.test(normalizedDomain)) {
 		return json({ error: '網域名稱無效' }, { status: 400 });
+	}
+
+	if (!EMAIL_RE.test(targetEmail)) {
+		return json({ error: '轉寄地址無效' }, { status: 400 });
 	}
 
 	if (color !== undefined && color !== null && !HEX_COLOR_RE.test(color)) {
 		return json({ error: '顏色值無效' }, { status: 400 });
 	}
 
-	const existing = await getDomain(locals.kv, domain);
+	const existing = await getDomain(locals.kv, normalizedDomain);
 	if (existing) {
 		return json({ error: '此網域已存在' }, { status: 409 });
 	}
 
 	const config: DomainConfig = {
-		domain,
+		domain: normalizedDomain,
 		targetEmail,
 		wildcardEnabled: wildcardEnabled ?? false,
 		enabled: true,

@@ -5,17 +5,21 @@ import { generateSlug } from '$lib/sluggen.js';
 import type { AliasConfig } from '$lib/types.js';
 import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const GET: RequestHandler = async ({ params, locals }) => {
-	const domain = await getDomain(locals.kv, params.domain);
+	const domainName = params.domain.toLowerCase();
+	const domain = await getDomain(locals.kv, domainName);
 	if (!domain) return json({ error: '找不到網域' }, { status: 404 });
 
-	const aliases = await listAliases(locals.kv, params.domain);
+	const aliases = await listAliases(locals.kv, domainName);
 	aliases.sort((a, b) => a.createdAt - b.createdAt);
 	return json(aliases);
 };
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-	const domain = await getDomain(locals.kv, params.domain);
+	const domainName = params.domain.toLowerCase();
+	const domain = await getDomain(locals.kv, domainName);
 	if (!domain) return json({ error: '找不到網域' }, { status: 404 });
 
 	const body = await request.json().catch(() => ({})) as Record<string, unknown>;
@@ -41,13 +45,17 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		senderRules = result.value!;
 	}
 
+	if (targetEmail != null && !EMAIL_RE.test(targetEmail)) {
+		return json({ error: '轉寄地址無效' }, { status: 400 });
+	}
+
 	if (!localPart) {
 		// Auto-generate unique slug
 		let attempts = 0;
 		do {
 			localPart = generateSlug();
 			attempts++;
-		} while ((await getAlias(locals.kv, params.domain, localPart)) && attempts < 10);
+		} while ((await getAlias(locals.kv, domainName, localPart)) && attempts < 10);
 	} else {
 		// Validate local part
 		if (!/^[a-zA-Z0-9._+-]+$/.test(localPart)) {
@@ -56,13 +64,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		if (localPart.length > 64) {
 			return json({ error: '別名名稱不可超過 64 個字元' }, { status: 400 });
 		}
-		const existing = await getAlias(locals.kv, params.domain, localPart);
+		// The email worker lowercases the recipient local part before lookup, so
+		// aliases must be stored lowercase or they would never receive mail.
+		localPart = localPart.toLowerCase();
+		const existing = await getAlias(locals.kv, domainName, localPart);
 		if (existing) return json({ error: '此別名已存在' }, { status: 409 });
 	}
 
 	const config: AliasConfig = {
 		localPart,
-		domain: params.domain,
+		domain: domainName,
 		targetEmail: targetEmail ?? null,
 		enabled: true,
 		createdAt: Date.now(),

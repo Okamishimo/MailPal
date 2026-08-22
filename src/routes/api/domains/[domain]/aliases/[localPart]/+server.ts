@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { deleteAlias, deleteLog, getAlias, putAlias } from '$lib/kv.js';
 import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const alias = await getAlias(locals.kv, params.domain, params.localPart);
 	if (!alias) return json({ error: '找不到別名' }, { status: 404 });
@@ -26,7 +28,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		if (targetEmail !== null && typeof targetEmail !== 'string') {
 			return json({ error: 'targetEmail 必須是字串或 null' }, { status: 400 });
 		}
-		updated.targetEmail = targetEmail === '' ? null : targetEmail;
+		const normalizedTarget = targetEmail === '' ? null : targetEmail;
+		if (normalizedTarget !== null && !EMAIL_RE.test(normalizedTarget)) {
+			return json({ error: '轉寄地址無效' }, { status: 400 });
+		}
+		updated.targetEmail = normalizedTarget;
 	}
 	if (note !== undefined) {
 		if (note !== null && typeof note !== 'string') return json({ error: 'note 必須是字串或 null' }, { status: 400 });
