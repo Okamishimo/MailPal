@@ -338,7 +338,7 @@
 						rows="4"
 						spellcheck="false"
 						placeholder="spam@example.com"
-						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 					></textarea>
 				</label>
 				<label class="space-y-1.5">
@@ -348,7 +348,7 @@
 						rows="4"
 						spellcheck="false"
 						placeholder="spam.example"
-						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 					></textarea>
 				</label>
 			</div>

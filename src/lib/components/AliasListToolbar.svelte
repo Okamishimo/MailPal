@@ -109,7 +109,7 @@
 									{/if}
 								</span>
 								{opt.label}
-								<span class="ml-auto tabular-nums text-xs text-app-muted/60">{statusCounts[opt.value]}</span>
+								<span class="ml-auto tabular-nums text-xs text-app-muted/70">{statusCounts[opt.value]}</span>
 							</DropdownMenu.RadioItem>
 						{/each}
 					</DropdownMenu.RadioGroup>
@@ -175,7 +175,7 @@
 			<button
 				type="button"
 				onclick={clearFilters}
-				class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-app-muted/60 hover:text-app-muted transition-colors"
+				class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-app-muted/70 hover:text-app-muted transition-colors"
 				aria-label="清除所有篩選條件"
 			>
 				<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -188,7 +188,7 @@
 
 	<!-- Right: sort controls -->
 	<div class="flex items-center gap-0.5 ml-auto" role="group" aria-label="排序別名">
-		<span class="text-xs text-app-muted/50 mr-1.5 select-none">排序</span>
+		<span class="text-xs text-app-muted/70 mr-1.5 select-none">排序</span>
 		{#each SORT_OPTIONS as opt (opt.field)}
 			{@const active = sortField === opt.field}
 			<button
@@ -260,7 +260,7 @@
 		type="button"
 		onclick={onShowHelp}
 		aria-label="顯示鍵盤快速鍵"
-		class="hidden md:flex items-center justify-center w-6 h-6 rounded border border-app-border text-[12px] font-bold text-app-muted/50 hover:text-app-muted hover:border-app-hover transition-colors"
+		class="hidden md:flex items-center justify-center w-6 h-6 rounded border border-app-border text-[12px] font-bold text-app-muted/70 hover:text-app-muted hover:border-app-hover transition-colors"
 		title="鍵盤快速鍵 (?)"
 	>?</button>
 

@@ -9,10 +9,10 @@ export default {
 					bg: '#161929',
 					sidebar: '#131625',
 					surface: '#1b1e31',
-					hover: '#21253c',
-					border: '#252943',
+					hover: '#252a43',
+					border: '#353b5a',
 					text: '#dde1f5',
-					muted: '#5c6492',
+					muted: '#aab4da',
 					accent: '#3ddec8',
 					'accent-dim': '#0d2e28'
 				}

@@ -89,7 +89,7 @@
 						<span class="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" aria-hidden="true"></span>
 					{/if}
 					{opt.label}
-					<span class="tabular-nums text-app-muted/60">{opt.count}</span>
+					<span class="tabular-nums text-app-muted/70">{opt.count}</span>
 				</button>
 			{/each}
 		</div>
@@ -101,7 +101,7 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 				</svg>
 				<p class="text-sm text-app-muted">目前尚無活動紀錄。</p>
-				<p class="text-xs text-app-muted/60 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
+				<p class="text-xs text-app-muted/70 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
 			</div>
 		{:else}
 			<ol class="space-y-2" aria-label="活動紀錄">
@@ -133,7 +133,7 @@
 								<span class="truncate" title={entry.to}>{entry.to}</span>
 							</div>
 							{#if entry.action === 'blocked' && entry.matchedRule}
-								<p class="text-[11px] text-app-muted/60 truncate" title={entry.matchedRule}>
+								<p class="text-[11px] text-app-muted/70 truncate" title={entry.matchedRule}>
 									符合的規則：{entry.matchedRule}
 								</p>
 							{/if}
@@ -143,14 +143,14 @@
 						<time
 							datetime={new Date(entry.at).toISOString()}
 							title={new Date(entry.at).toLocaleString('zh-TW')}
-							class="text-xs text-app-muted/60 shrink-0 tabular-nums"
+							class="text-xs text-app-muted/70 shrink-0 tabular-nums"
 						>
 							{relativeTime(entry.at)}
 						</time>
 					</li>
 				{/each}
 			</ol>
-			<p class="text-center text-xs text-app-muted/50 pt-2">
+			<p class="text-center text-xs text-app-muted/70 pt-2">
 				顯示最近 {entries.length} 筆事件
 				{#if filter !== 'all'}（{filter === 'forwarded' ? '已轉寄' : '已封鎖'}）{/if}。
 				每個別名最多保留 50 筆事件。

@@ -144,7 +144,7 @@
 	<!-- Skip -->
 	<button
 		onclick={complete}
-		class="absolute top-5 right-5 text-xs text-app-muted/35 hover:text-app-muted/70 transition-colors px-2 py-1 rounded"
+		class="absolute top-5 right-5 text-xs text-app-muted/70 hover:text-app-muted transition-colors px-2 py-1 rounded"
 	>
 		略過
 	</button>
@@ -227,7 +227,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
 							</svg>
 						</div>
-						<span class="text-[10px] text-app-muted/45 leading-tight text-center">任何<br>網站</span>
+						<span class="text-[10px] text-app-muted/70 leading-tight text-center">任何<br>網站</span>
 					</div>
 
 					<!-- Connector 1 -->
@@ -278,7 +278,7 @@
 								</svg>
 							</div>
 						</div>
-						<span class="text-[10px] text-app-muted/45 leading-tight text-center">您的<br>收件匣</span>
+						<span class="text-[10px] text-app-muted/70 leading-tight text-center">您的<br>收件匣</span>
 					</div>
 
 				</div>
@@ -338,14 +338,14 @@
 
 				<!-- Expiry hint pills -->
 				<div class="flex justify-center gap-2 pt-1">
-					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border bg-app-surface text-xs text-app-muted/55">
+					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border bg-app-surface text-xs text-app-muted/70">
 						<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 							<circle cx="12" cy="12" r="9" stroke-width="2"/>
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 3"/>
 						</svg>
 						指定日期後自動停用
 					</div>
-					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border bg-app-surface text-xs text-app-muted/55">
+					<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-app-border bg-app-surface text-xs text-app-muted/70">
 						<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
 						</svg>

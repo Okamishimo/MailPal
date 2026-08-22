@@ -267,7 +267,7 @@
 												oninput={(e) => { const v = parseInt(e.currentTarget.value, 10); maxForwards = isNaN(v) || v < 1 ? null : v; }}
 												min="1"
 												placeholder="例如 10"
-												class="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
+												class="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 											/>
 										</div>
 										<p class="text-xs text-app-muted">達到此轉寄次數後自動停用別名。</p>

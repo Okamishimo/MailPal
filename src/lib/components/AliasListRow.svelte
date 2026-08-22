@@ -523,7 +523,7 @@
 				class="p-1.5 rounded transition-colors shrink-0
 					{expanded
 						? 'text-app-accent bg-app-accent/10'
-						: 'text-app-muted/50 hover:text-app-muted hover:bg-app-hover'}"
+						: 'text-app-muted/70 hover:text-app-muted hover:bg-app-hover'}"
 			>
 				<svg
 					class="w-3.5 h-3.5 transition-transform duration-200 {expanded ? 'rotate-180' : ''}"
@@ -589,7 +589,7 @@
 							type="text"
 							bind:value={editNote}
 							placeholder="這個別名的用途，例如：註冊 GitHub"
-							class="w-full px-3 py-2 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
+							class="w-full px-3 py-2 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 						/>
 					</div>
 
@@ -682,7 +682,7 @@
 				<div class="space-y-3 pt-1 border-t border-app-border/50">
 					<div>
 						<p class="text-xs font-medium text-app-muted">寄件者篩選</p>
-						<p class="text-[11px] text-app-muted/60 mt-0.5">
+						<p class="text-[11px] text-app-muted/70 mt-0.5">
 							規則會比對 SMTP 信封寄件者，且封鎖規則永遠優先套用。
 						</p>
 					</div>
@@ -699,7 +699,7 @@
 								{mode === 'normal' ? '一般模式' : '僅允許清單'}
 							</button>
 						{/each}
-						<span class="self-center text-[11px] text-app-muted/60">
+						<span class="self-center text-[11px] text-app-muted/70">
 							{editSenderMode === 'normal'
 								? '接受所有未被封鎖規則比對到的寄件者。'
 								: '只接受符合允許規則的寄件者。'}
@@ -713,7 +713,7 @@
 								rows="3"
 								spellcheck="false"
 								placeholder="orders@example.com"
-								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
@@ -723,7 +723,7 @@
 								rows="3"
 								spellcheck="false"
 								placeholder="example.com"
-								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
@@ -733,7 +733,7 @@
 								rows="3"
 								spellcheck="false"
 								placeholder="spam@example.com"
-								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
@@ -743,11 +743,11 @@
 								rows="3"
 								spellcheck="false"
 								placeholder="spam.example"
-								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 							></textarea>
 						</label>
 					</div>
-					<p class="text-[11px] text-app-muted/50">
+					<p class="text-[11px] text-app-muted/70">
 						每行填寫一個完整地址或網域；網域規則也會比對其子網域。
 						若要封鎖所有信件，請使用上方的別名開關。
 					</p>
@@ -792,7 +792,7 @@
 								oninput={(e) => { const v = parseInt(e.currentTarget.value, 10); editMaxForwards = isNaN(v) || v < 1 ? null : v; }}
 								min="1"
 								placeholder="例如 10"
-								class="w-24 px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
+								class="w-24 px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/70 focus:outline-none focus:border-app-accent/60 transition-colors"
 							/>
 							<span class="text-xs text-app-muted">封信後停用</span>
 							{#if expiryBadge}
@@ -901,7 +901,7 @@
 				{:else if activityLog.length === 0}
 					<div class="text-center py-10">
 						<p class="text-xs text-app-muted">目前尚無活動紀錄。</p>
-						<p class="text-xs text-app-muted/50 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
+						<p class="text-xs text-app-muted/70 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
 					</div>
 				{:else}
 					<ol class="space-y-1" aria-label="近期活動紀錄">
@@ -923,9 +923,9 @@
 								{#if entry.subject}
 									<p class="text-xs text-app-text/80 truncate" title={entry.subject}>{entry.subject}</p>
 								{/if}
-								<p class="text-xs text-app-muted/60 truncate" title={entry.to}>→ {entry.to}</p>
+								<p class="text-xs text-app-muted/70 truncate" title={entry.to}>→ {entry.to}</p>
 								{#if entry.action === 'blocked' && entry.matchedRule}
-									<p class="text-[11px] text-app-muted/50 truncate" title={entry.matchedRule}>
+									<p class="text-[11px] text-app-muted/70 truncate" title={entry.matchedRule}>
 										符合 {entry.matchedRule}
 									</p>
 								{/if}
@@ -933,7 +933,7 @@
 								<time
 									datetime={new Date(entry.at).toISOString()}
 									title={new Date(entry.at).toLocaleString('zh-TW')}
-									class="text-[11px] text-app-muted/50 shrink-0 tabular-nums"
+									class="text-[11px] text-app-muted/70 shrink-0 tabular-nums"
 								>
 									{relativeTime(entry.at)}
 								</time>

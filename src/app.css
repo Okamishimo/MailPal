@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+	:root {
+		--color-app-surface: #1b1e31;
+		--color-app-hover: #252a43;
+		--color-app-border: #353b5a;
+		--color-app-muted: #aab4da;
+		--app-border: #353b5a;
+	}
+
 	* {
 		box-sizing: border-box;
 	}
