@@ -1,6 +1,12 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import type { AliasConfig, DestinationAddress, DomainConfig, Tag } from '$lib/types.js';
+	import type {
+		AliasConfig,
+		DestinationAddress,
+		DomainConfig,
+		GlobalSenderBlocklist,
+		Tag
+	} from '$lib/types.js';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import QuickCreateForm from '$lib/components/QuickCreateForm.svelte';
 	import AliasListRow from '$lib/components/AliasListRow.svelte';
@@ -22,6 +28,7 @@
 	let aliases = $state<AliasConfig[]>(data.allAliases);
 	let destinations = $state<DestinationAddress[]>(data.destinations);
 	let tags = $state<Tag[]>(data.tags);
+	let globalSenderBlocklist = $state<GlobalSenderBlocklist>(data.globalSenderBlocklist);
 	let selectedDomain = $state<string | null>(null);
 	let selectedTags = $state<string[]>([]);
 	let search = $state('');
@@ -175,6 +182,10 @@
 
 	function handleTagUpdated(tag: Tag) {
 		tags = tags.map((t) => (t.name === tag.name ? tag : t));
+	}
+
+	function handleGlobalSenderBlocklistUpdated(blocklist: GlobalSenderBlocklist) {
+		globalSenderBlocklist = blocklist;
 	}
 
 	// ─── Bulk selection ────────────────────────────────────────────────────────
@@ -537,12 +548,14 @@
 	open={showSettings}
 	{destinations}
 	{tags}
+	{globalSenderBlocklist}
 	onClose={() => (showSettings = false)}
 	onAdded={handleDestinationAdded}
 	onRemoved={handleDestinationRemoved}
 	onTagCreated={handleTagCreated}
 	onTagDeleted={handleTagDeleted}
 	onTagUpdated={handleTagUpdated}
+	onGlobalSenderBlocklistUpdated={handleGlobalSenderBlocklistUpdated}
 />
 
 {#if editingDomain}

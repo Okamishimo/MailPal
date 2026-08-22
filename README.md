@@ -60,6 +60,9 @@ Set an expiry date or a max-forward limit and aliases disable themselves automat
 - **Always know what's happening** – 
 Every alias tracks forwarded and blocked counts plus a per-alias activity log, so you can see exactly which service leaked your address and when.
 
+- **Filter by the real SMTP sender** –
+Use per-alias allowlists and blocklists plus a global sender blocklist. Exact-address and domain rules are normalized and domain rules safely include subdomains without suffix matching.
+
 - **Built for real workflows** – 
 Add notes, assign color tags, and use full-text search to find any alias in seconds. Bulk-enable, bulk-disable, or bulk-delete when you need to act fast. Manage multiple domains from a single dashboard.
 
@@ -76,9 +79,14 @@ Both share one KV namespace. The **SvelteKit app** provides the management UI an
 
 When a message arrives:
 1. The worker looks up the alias in KV
-2. If active: it forwards to the configured target inbox and appends an entry to the alias activity log
-3. If disabled, expired, or over-limit: it rejects silently and logs a blocked entry
-4. If no alias exists and wildcard mode is on: it auto-creates one and forwards
+2. If no alias exists and wildcard mode is on: it auto-creates one
+3. It applies the global blocklist, alias block rules, and optional alias allowlist to Cloudflare's envelope sender
+4. If active and allowed: it forwards to the configured target inbox and appends an entry to the alias activity log
+5. If disabled, filtered, expired, or over-limit: it rejects with a generic SMTP reason and logs bounded metadata explaining why
+
+### Sender-authentication limitation
+
+Sender rules authorize Cloudflare's SMTP envelope sender (`message.from`), never the human-visible `From:` header. The Email Worker runtime also exposes message headers, so `From:`, `Return-Path`, and `Authentication-Results` may be inspected when present, but MailPal does not currently receive or enforce a structured, independently trustworthy SPF/DKIM/DMARC verdict at this decision point. Authenticated-domain policy is a future enhancement; header text alone must not be used as spoofing protection.
 
 ## Setup
 
@@ -253,5 +261,6 @@ After adding the domain, make sure the catch-all rule in Cloudflare Email Routin
 | `tag:{name}` | `Tag` JSON |
 | `log:{domain}/{localPart}` | `LogEntry[]` JSON — ring buffer, last 50 entries |
 | `settings:onboarded` | `"1"` when the onboarding flow has been completed |
+| `settings:sender-blocklist` | Global exact-address and domain sender block rules |
 
 You can inspect or edit values directly in the Cloudflare dashboard under **Workers & Pages → KV → your namespace**.

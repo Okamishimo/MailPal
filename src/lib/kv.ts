@@ -1,5 +1,15 @@
 import type { KVNamespace } from '@cloudflare/workers-types';
-import type { AliasConfig, DestinationAddress, DomainConfig, LogEntry, Tag } from './types.js';
+import type {
+	AliasConfig,
+	DestinationAddress,
+	DomainConfig,
+	GlobalSenderBlocklist,
+	LogEntry,
+	Tag
+} from './types.js';
+import { normalizeGlobalSenderBlocklist } from './sender-rules.js';
+
+const GLOBAL_SENDER_BLOCKLIST_KEY = 'settings:sender-blocklist';
 
 // ─── Domain helpers ───────────────────────────────────────────────────────────
 
@@ -102,6 +112,25 @@ export async function getLog(
 
 export async function deleteLog(kv: KVNamespace, domain: string, localPart: string): Promise<void> {
 	await kv.delete(`log:${domain}/${localPart}`);
+}
+
+// ─── Sender filtering settings ───────────────────────────────────────────────
+
+export async function getGlobalSenderBlocklist(kv: KVNamespace): Promise<GlobalSenderBlocklist> {
+	const val = await kv.get(GLOBAL_SENDER_BLOCKLIST_KEY);
+	if (!val) return normalizeGlobalSenderBlocklist(null);
+	try {
+		return normalizeGlobalSenderBlocklist(JSON.parse(val));
+	} catch {
+		return normalizeGlobalSenderBlocklist(null);
+	}
+}
+
+export async function putGlobalSenderBlocklist(
+	kv: KVNamespace,
+	blocklist: GlobalSenderBlocklist
+): Promise<void> {
+	await kv.put(GLOBAL_SENDER_BLOCKLIST_KEY, JSON.stringify(blocklist));
 }
 
 // ─── Tag helpers ──────────────────────────────────────────────────────────────

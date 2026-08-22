@@ -3,20 +3,36 @@ import type {
 	ForwardableEmailMessage,
 	ExecutionContext
 } from '@cloudflare/workers-types';
-import type { AliasConfig, DomainConfig } from '../../src/lib/types.js';
+import type {
+	AliasConfig,
+	BlockReason,
+	DomainConfig,
+	GlobalSenderBlocklist,
+	LogEntry
+} from '../../src/lib/types.js';
+import {
+	evaluateSenderRules,
+	normalizeEmailAddress,
+	normalizeGlobalSenderBlocklist,
+	sanitizeSubject
+} from '../../src/lib/sender-rules.js';
 
-interface Env {
-	KV: KVNamespace;
+const LOG_LIMIT = 50;
+const GENERIC_REJECTION = 'Message rejected';
+
+function schedule(ctx: ExecutionContext, promise: Promise<unknown>, operation: string): void {
+	ctx.waitUntil(
+		promise.catch((error) => {
+			console.error(JSON.stringify({
+				message: 'Background email operation failed',
+				operation,
+				error: error instanceof Error ? error.message : String(error)
+			}));
+		})
+	);
 }
 
-interface LogEntry {
-	at: number;
-	action: 'forwarded' | 'blocked';
-	from: string;
-	to: string;
-}
-
-async function appendLog(
+export async function appendLog(
 	kv: KVNamespace,
 	domain: string,
 	localPart: string,
@@ -26,138 +42,218 @@ async function appendLog(
 	let log: LogEntry[] = [];
 	try {
 		const existing = await kv.get(key);
-		if (existing) log = JSON.parse(existing);
-	} catch { /* ignore malformed */ }
+		const parsed: unknown = existing ? JSON.parse(existing) : [];
+		if (Array.isArray(parsed)) log = parsed as LogEntry[];
+	} catch {
+		// A malformed historical log should not interrupt mail delivery.
+	}
 	log.unshift(entry);
-	if (log.length > 50) log.length = 50;
+	if (log.length > LOG_LIMIT) log.length = LOG_LIMIT;
 	await kv.put(key, JSON.stringify(log));
 }
 
-export default {
-	async email(message: ForwardableEmailMessage, env: Env, ctx: ExecutionContext): Promise<void> {
-		const to = message.to;
-		const atIdx = to.indexOf('@');
+async function getGlobalSenderBlocklist(kv: KVNamespace): Promise<GlobalSenderBlocklist> {
+	const value = await kv.get('settings:sender-blocklist');
+	if (!value) return normalizeGlobalSenderBlocklist(null);
+	try {
+		return normalizeGlobalSenderBlocklist(JSON.parse(value));
+	} catch {
+		console.error(JSON.stringify({ message: 'Ignoring malformed global sender blocklist' }));
+		return normalizeGlobalSenderBlocklist(null);
+	}
+}
 
-		if (atIdx === -1) {
-			console.log('Invalid email address:', to);
-			message.setReject('Invalid address');
+interface BlockMessageOptions {
+	reason: BlockReason;
+	sender: string | null;
+	matchedRule?: string;
+	disableAlias?: boolean;
+}
+
+function blockMessage(
+	message: ForwardableEmailMessage,
+	env: Env,
+	ctx: ExecutionContext,
+	domain: string,
+	localPart: string,
+	aliasConfig: AliasConfig,
+	domainConfig: DomainConfig,
+	options: BlockMessageOptions
+): void {
+	const now = Date.now();
+	const target = aliasConfig.targetEmail ?? domainConfig.targetEmail;
+	const updated: AliasConfig = {
+		...aliasConfig,
+		...(options.disableAlias ? { enabled: false } : {}),
+		blockedCount: (aliasConfig.blockedCount ?? 0) + 1,
+		lastUsedAt: now
+	};
+	const subject = sanitizeSubject(message.headers.get('subject'));
+	const entry: LogEntry = {
+		at: now,
+		action: 'blocked',
+		from: options.sender ?? '',
+		to: target,
+		recipient: `${localPart}@${domain}`,
+		reason: options.reason,
+		...(options.matchedRule ? { matchedRule: options.matchedRule } : {}),
+		...(subject ? { subject } : {})
+	};
+
+	schedule(
+		ctx,
+		Promise.all([
+			env.KV.put(`alias:${domain}/${localPart}`, JSON.stringify(updated)),
+			appendLog(env.KV, domain, localPart, entry)
+		]),
+		`record_${options.reason}`
+	);
+	console.log(JSON.stringify({
+		message: 'Email blocked',
+		recipient: entry.recipient,
+		reason: options.reason
+	}));
+	message.setReject(GENERIC_REJECTION);
+}
+
+export async function handleEmail(
+	message: ForwardableEmailMessage,
+	env: Env,
+	ctx: ExecutionContext
+): Promise<void> {
+	const to = message.to;
+	const atIdx = to.indexOf('@');
+
+	if (atIdx <= 0 || atIdx !== to.lastIndexOf('@') || atIdx === to.length - 1) {
+		console.log(JSON.stringify({ message: 'Invalid envelope recipient' }));
+		message.setReject('Address unavailable');
+		return;
+	}
+
+	const localPart = to.slice(0, atIdx).trim().toLowerCase();
+	const domain = to.slice(atIdx + 1).trim().toLowerCase();
+
+	try {
+		// 1. Resolve the configured domain and alias, including wildcard creation.
+		const domainVal = await env.KV.get(`domain:${domain}`);
+		if (!domainVal) {
+			console.log(JSON.stringify({ message: 'Unknown recipient domain', domain }));
+			message.setReject('Address unavailable');
 			return;
 		}
 
-		const localPart = to.slice(0, atIdx).toLowerCase();
-		const domain = to.slice(atIdx + 1).toLowerCase();
-
-		try {
-			// 1. Load domain config
-			const domainVal = await env.KV.get(`domain:${domain}`);
-			if (!domainVal) {
-				console.log('Unknown domain:', domain);
-				message.setReject('Unknown domain');
-				return;
-			}
-
-			const domainConfig = JSON.parse(domainVal) as DomainConfig;
-			if (!domainConfig.enabled) {
-				console.log('Disabled domain:', domain);
-				message.setReject('Domain disabled');
-				return;
-			}
-
-			// 2. Load alias
-			const aliasKey = `alias:${domain}/${localPart}`;
-			let aliasVal = await env.KV.get(aliasKey);
-			let aliasConfig: AliasConfig | null = aliasVal ? JSON.parse(aliasVal) : null;
-
-			// 3. Wildcard auto-create
-			if (!aliasConfig && domainConfig.wildcardEnabled) {
-				aliasConfig = {
-					localPart,
-					domain,
-					targetEmail: null,
-					enabled: true,
-					createdAt: Date.now(),
-					forwardedCount: 0,
-					blockedCount: 0,
-					lastUsedAt: null,
-					autoCreated: true
-				};
-				ctx.waitUntil(env.KV.put(aliasKey, JSON.stringify(aliasConfig)));
-			}
-
-			// 4. Still not found
-			if (!aliasConfig) {
-				console.log('Unknown alias:', domain, localPart);
-				message.setReject('Unknown alias');
-				return;
-			}
-
-			// 5. Alias disabled
-			if (!aliasConfig.enabled) {
-				const now = Date.now();
-				const wouldBeTarget = aliasConfig.targetEmail ?? domainConfig.targetEmail;
-				const updated: AliasConfig = {
-					...aliasConfig,
-					blockedCount: aliasConfig.blockedCount + 1,
-					lastUsedAt: now
-				};
-				ctx.waitUntil(env.KV.put(aliasKey, JSON.stringify(updated)));
-				ctx.waitUntil(appendLog(env.KV, domain, localPart, { at: now, action: 'blocked', from: message.from, to: wouldBeTarget }));
-				console.log('Disabled alias:', domain, localPart);
-				message.setReject('Alias disabled');
-				return;
-			}
-
-			// 5a. Date expiry
-			if (aliasConfig.expiresAt && Date.now() > aliasConfig.expiresAt) {
-				const now = Date.now();
-				const wouldBeTarget = aliasConfig.targetEmail ?? domainConfig.targetEmail;
-				const updated: AliasConfig = {
-					...aliasConfig,
-					enabled: false,
-					blockedCount: aliasConfig.blockedCount + 1,
-					lastUsedAt: now
-				};
-				ctx.waitUntil(env.KV.put(aliasKey, JSON.stringify(updated)));
-				ctx.waitUntil(appendLog(env.KV, domain, localPart, { at: now, action: 'blocked', from: message.from, to: wouldBeTarget }));
-				console.log('Expired alias:', domain, localPart);
-				message.setReject('Alias expired');
-				return;
-			}
-
-			// 5b. Forward count limit
-			if (aliasConfig.maxForwards != null && aliasConfig.forwardedCount >= aliasConfig.maxForwards) {
-				const now = Date.now();
-				const wouldBeTarget = aliasConfig.targetEmail ?? domainConfig.targetEmail;
-				const updated: AliasConfig = {
-					...aliasConfig,
-					enabled: false,
-					blockedCount: aliasConfig.blockedCount + 1,
-					lastUsedAt: now
-				};
-				ctx.waitUntil(env.KV.put(aliasKey, JSON.stringify(updated)));
-				ctx.waitUntil(appendLog(env.KV, domain, localPart, { at: now, action: 'blocked', from: message.from, to: wouldBeTarget }));
-				console.log('Forward limit reached for alias:', domain, localPart);
-				message.setReject('Forward limit reached');
-				return;
-			}
-
-			// 6. Resolve target and forward
-			const target = aliasConfig.targetEmail ?? domainConfig.targetEmail;
-			await message.forward(target);
-
-			// 7. Update stats + log async
-			const now = Date.now();
-			const updated: AliasConfig = {
-				...aliasConfig,
-				forwardedCount: aliasConfig.forwardedCount + 1,
-				lastUsedAt: now
-			};
-			ctx.waitUntil(env.KV.put(aliasKey, JSON.stringify(updated)));
-			ctx.waitUntil(appendLog(env.KV, domain, localPart, { at: now, action: 'forwarded', from: message.from, to: target }));
-			console.log('Forwarded email for', to, 'to', target);
-		} catch (e) {
-			console.error('Error processing email for', to, e);
-			message.setReject('Internal error');
+		const domainConfig = JSON.parse(domainVal) as DomainConfig;
+		if (!domainConfig.enabled) {
+			console.log(JSON.stringify({ message: 'Recipient domain disabled', domain }));
+			message.setReject('Address unavailable');
+			return;
 		}
+
+		const aliasKey = `alias:${domain}/${localPart}`;
+		const aliasVal = await env.KV.get(aliasKey);
+		let aliasConfig: AliasConfig | null = aliasVal ? JSON.parse(aliasVal) as AliasConfig : null;
+
+		if (!aliasConfig && domainConfig.wildcardEnabled) {
+			aliasConfig = {
+				localPart,
+				domain,
+				targetEmail: null,
+				enabled: true,
+				createdAt: Date.now(),
+				forwardedCount: 0,
+				blockedCount: 0,
+				lastUsedAt: null,
+				autoCreated: true
+			};
+		}
+
+		if (!aliasConfig) {
+			console.log(JSON.stringify({ message: 'Unknown recipient alias', domain, localPart }));
+			message.setReject('Address unavailable');
+			return;
+		}
+
+		// 2. Existing enabled/disabled behavior remains the authoritative disabled mode.
+		if (!aliasConfig.enabled) {
+			blockMessage(message, env, ctx, domain, localPart, aliasConfig, domainConfig, {
+				reason: 'alias_disabled',
+				sender: normalizeEmailAddress(message.from)
+			});
+			return;
+		}
+
+		// 3-5. Global blocks, alias blocks, then allowlist authorization.
+		const globalBlocklist = await getGlobalSenderBlocklist(env.KV);
+		const senderDecision = evaluateSenderRules(message.from, aliasConfig, globalBlocklist);
+		if (!senderDecision.allowed) {
+			blockMessage(message, env, ctx, domain, localPart, aliasConfig, domainConfig, {
+				reason: senderDecision.reason!,
+				sender: senderDecision.sender,
+				matchedRule: senderDecision.matchedRule
+			});
+			return;
+		}
+
+		// 6. Preserve expiry and forwarding-limit checks after sender authorization.
+		if (aliasConfig.expiresAt && Date.now() > aliasConfig.expiresAt) {
+			blockMessage(message, env, ctx, domain, localPart, aliasConfig, domainConfig, {
+				reason: 'alias_expired',
+				sender: senderDecision.sender,
+				disableAlias: true
+			});
+			return;
+		}
+
+		if (
+			aliasConfig.maxForwards != null &&
+			(aliasConfig.forwardedCount ?? 0) >= aliasConfig.maxForwards
+		) {
+			blockMessage(message, env, ctx, domain, localPart, aliasConfig, domainConfig, {
+				reason: 'forwarding_limit_reached',
+				sender: senderDecision.sender,
+				disableAlias: true
+			});
+			return;
+		}
+
+		// 7. Forward allowed mail, then record only bounded metadata.
+		const target = aliasConfig.targetEmail ?? domainConfig.targetEmail;
+		await message.forward(target);
+
+		const now = Date.now();
+		const updated: AliasConfig = {
+			...aliasConfig,
+			forwardedCount: (aliasConfig.forwardedCount ?? 0) + 1,
+			lastUsedAt: now
+		};
+		const subject = sanitizeSubject(message.headers.get('subject'));
+		const entry: LogEntry = {
+			at: now,
+			action: 'forwarded',
+			from: senderDecision.sender!,
+			to: target,
+			recipient: `${localPart}@${domain}`,
+			...(subject ? { subject } : {})
+		};
+		schedule(
+			ctx,
+			Promise.all([
+				env.KV.put(aliasKey, JSON.stringify(updated)),
+				appendLog(env.KV, domain, localPart, entry)
+			]),
+			'record_forwarded'
+		);
+		console.log(JSON.stringify({ message: 'Email forwarded', recipient: entry.recipient }));
+	} catch (error) {
+		console.error(JSON.stringify({
+			message: 'Error processing email',
+			recipient: to,
+			error: error instanceof Error ? error.message : String(error)
+		}));
+		message.setReject('Internal error');
 	}
+}
+
+export default {
+	email: handleEmail
 } satisfies ExportedHandler<Env>;

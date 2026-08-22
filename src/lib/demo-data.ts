@@ -135,7 +135,10 @@ const ALIASES: AliasConfig[] = [
 		blockedCount: 3,
 		lastUsedAt: NOW - 1 * DAY,
 		autoCreated: false,
-		tags: ['shopping']
+		tags: ['shopping'],
+		senderMode: 'allowlist',
+		allowedSenderDomains: ['amazon.com'],
+		blockedSenderAddresses: ['deals@amazon.com']
 	},
 	{
 		localPart: 'ebay-alerts',
@@ -195,7 +198,7 @@ const LOGS: Record<string, LogEntry[]> = {
 		{ at: NOW - 6 * DAY, action: 'forwarded', from: 'noreply@github.com', to: 'you@gmail.com' }
 	],
 	'aliases.acme.com/linkedin-alerts': [
-		{ at: NOW - 5 * DAY, action: 'blocked', from: 'messages-noreply@linkedin.com', to: 'you@gmail.com' },
+		{ at: NOW - 5 * DAY, action: 'blocked', from: 'messages-noreply@linkedin.com', to: 'you@gmail.com', reason: 'alias_disabled', subject: 'You have new messages' },
 		{ at: NOW - 5 * DAY + 60_000, action: 'blocked', from: 'jobs-listings@linkedin.com', to: 'you@gmail.com' },
 		{ at: NOW - 5 * DAY + 120_000, action: 'blocked', from: 'updates@linkedin.com', to: 'you@gmail.com' }
 	],
@@ -209,9 +212,9 @@ const LOGS: Record<string, LogEntry[]> = {
 		{ at: NOW - 7 * DAY, action: 'forwarded', from: 'notifications@stripe.com', to: 'work@company.com' }
 	],
 	'shopping.example.com/amazon-orders': [
-		{ at: NOW - 1 * DAY, action: 'forwarded', from: 'shipment-tracking@amazon.com', to: 'work@company.com' },
+		{ at: NOW - 1 * DAY, action: 'forwarded', from: 'shipment-tracking@amazon.com', to: 'work@company.com', subject: 'Your order has shipped' },
 		{ at: NOW - 2 * DAY, action: 'forwarded', from: 'order-update@amazon.com', to: 'work@company.com' },
-		{ at: NOW - 3 * DAY, action: 'blocked', from: 'deals@amazon.com', to: 'work@company.com' },
+		{ at: NOW - 3 * DAY, action: 'blocked', from: 'deals@amazon.com', to: 'work@company.com', reason: 'alias_sender_blocked', matchedRule: 'deals@amazon.com', subject: 'Today only: special deals' },
 		{ at: NOW - 5 * DAY, action: 'forwarded', from: 'shipment-tracking@amazon.com', to: 'work@company.com' }
 	],
 	'shopping.example.com/ebay-alerts': [
@@ -230,6 +233,10 @@ export function buildDemoKVData(): Map<string, string> {
 
 	// Suppress the onboarding wizard
 	store.set('settings:onboarded', '1');
+	store.set('settings:sender-blocklist', JSON.stringify({
+		blockedSenderAddresses: ['known-spammer@bad.example'],
+		blockedSenderDomains: ['bulk.bad.example']
+	}));
 
 	for (const d of DESTINATIONS) {
 		store.set(`destination:${d.email}`, JSON.stringify(d));

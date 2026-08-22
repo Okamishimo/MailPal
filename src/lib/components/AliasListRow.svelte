@@ -1,5 +1,12 @@
 <script lang="ts">
-	import type { AliasConfig, DestinationAddress, DomainConfig, LogEntry, Tag } from '$lib/types.js';
+	import type {
+		AliasConfig,
+		DestinationAddress,
+		DomainConfig,
+		LogEntry,
+		SenderMode,
+		Tag
+	} from '$lib/types.js';
 	import { AlertDialog, Tooltip } from 'bits-ui';
 	import { slide } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
@@ -56,7 +63,24 @@
 	let editTargetEmail = $state(alias.targetEmail ?? '');
 	let editNote = $state(alias.note ?? '');
 	let editTags = $state<string[]>(alias.tags ?? []);
+	let editSenderMode = $state<SenderMode>('normal');
+	let editAllowedSenderAddresses = $state('');
+	let editAllowedSenderDomains = $state('');
+	let editBlockedSenderAddresses = $state('');
+	let editBlockedSenderDomains = $state('');
 	let saving = $state(false);
+
+	function textToRules(value: string): string[] {
+		return value.split(/[\n,]+/).map((entry) => entry.trim()).filter(Boolean);
+	}
+
+	function resetSenderRuleFields(): void {
+		editSenderMode = alias.senderMode === 'allowlist' ? 'allowlist' : 'normal';
+		editAllowedSenderAddresses = (alias.allowedSenderAddresses ?? []).join('\n');
+		editAllowedSenderDomains = (alias.allowedSenderDomains ?? []).join('\n');
+		editBlockedSenderAddresses = (alias.blockedSenderAddresses ?? []).join('\n');
+		editBlockedSenderDomains = (alias.blockedSenderDomains ?? []).join('\n');
+	}
 
 	// Expiry state
 	type ExpiryMode = 'none' | 'date' | 'count';
@@ -122,6 +146,11 @@
 		editTags.length !== (alias.tags?.length ?? 0) ||
 		editTags.some((t) => !(alias.tags ?? []).includes(t)) ||
 		(alias.tags ?? []).some((t) => !editTags.includes(t)) ||
+		editSenderMode !== (alias.senderMode === 'allowlist' ? 'allowlist' : 'normal') ||
+		editAllowedSenderAddresses !== (alias.allowedSenderAddresses ?? []).join('\n') ||
+		editAllowedSenderDomains !== (alias.allowedSenderDomains ?? []).join('\n') ||
+		editBlockedSenderAddresses !== (alias.blockedSenderAddresses ?? []).join('\n') ||
+		editBlockedSenderDomains !== (alias.blockedSenderDomains ?? []).join('\n') ||
 		(expiryMode === 'date' ? editExpiresAt : null) !== (alias.expiresAt ?? null) ||
 		(expiryMode === 'count' ? editMaxForwards : null) !== (alias.maxForwards ?? null)
 	);
@@ -134,6 +163,7 @@
 		editExpiresAt = alias.expiresAt ?? null;
 		editMaxForwards = alias.maxForwards ?? null;
 		expiryMode = alias.expiresAt ? 'date' : alias.maxForwards != null ? 'count' : 'none';
+		resetSenderRuleFields();
 	});
 
 	async function handleToggle() {
@@ -174,6 +204,11 @@
 					targetEmail: editTargetEmail || null,
 					note: editNote.trim() || null,
 					tags: editTags,
+					senderMode: editSenderMode,
+					allowedSenderAddresses: textToRules(editAllowedSenderAddresses),
+					allowedSenderDomains: textToRules(editAllowedSenderDomains),
+					blockedSenderAddresses: textToRules(editBlockedSenderAddresses),
+					blockedSenderDomains: textToRules(editBlockedSenderDomains),
 					expiresAt: expiryMode === 'date' ? editExpiresAt : null,
 					maxForwards: expiryMode === 'count' ? editMaxForwards : null
 				})
@@ -255,6 +290,19 @@
 		const days = Math.floor(hrs / 24);
 		if (days < 30) return `${days}d ago`;
 		return new Date(at).toLocaleDateString();
+	}
+
+	function blockReasonLabel(reason: LogEntry['reason']): string {
+		if (!reason) return 'blocked';
+		return ({
+			alias_disabled: 'alias disabled',
+			global_sender_blocked: 'global sender block',
+			alias_sender_blocked: 'alias sender block',
+			sender_not_in_allowlist: 'not in allowlist',
+			alias_expired: 'alias expired',
+			forwarding_limit_reached: 'forwarding limit reached',
+			invalid_sender: 'invalid envelope sender'
+		} as const)[reason];
 	}
 
 	async function handleCreateTag(e: Event) {
@@ -630,6 +678,81 @@
 					</div>
 				</div>
 
+				<!-- Sender filtering -->
+				<div class="space-y-3 pt-1 border-t border-app-border/50">
+					<div>
+						<p class="text-xs font-medium text-app-muted">Sender filtering</p>
+						<p class="text-[11px] text-app-muted/60 mt-0.5">
+							Rules use the SMTP envelope sender. Block rules always take precedence.
+						</p>
+					</div>
+					<div class="flex gap-1.5 flex-wrap">
+						{#each (['normal', 'allowlist'] as const) as mode}
+							<button
+								type="button"
+								onclick={() => (editSenderMode = mode)}
+								class="px-2.5 py-1 rounded-md text-xs transition-colors
+									{editSenderMode === mode
+										? 'bg-app-accent text-app-bg font-medium'
+										: 'bg-app-hover text-app-muted hover:text-app-text border border-app-border'}"
+							>
+								{mode === 'normal' ? 'Normal' : 'Allowlist only'}
+							</button>
+						{/each}
+						<span class="self-center text-[11px] text-app-muted/60">
+							{editSenderMode === 'normal'
+								? 'Accept all senders except blocked rules.'
+								: 'Accept only senders matching an allowed rule.'}
+						</span>
+					</div>
+					<div class="grid gap-3 md:grid-cols-2">
+						<label class="space-y-1.5">
+							<span class="block text-xs font-medium text-app-muted">Allowed addresses</span>
+							<textarea
+								bind:value={editAllowedSenderAddresses}
+								rows="3"
+								spellcheck="false"
+								placeholder="orders@example.com"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+							></textarea>
+						</label>
+						<label class="space-y-1.5">
+							<span class="block text-xs font-medium text-app-muted">Allowed domains</span>
+							<textarea
+								bind:value={editAllowedSenderDomains}
+								rows="3"
+								spellcheck="false"
+								placeholder="example.com"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+							></textarea>
+						</label>
+						<label class="space-y-1.5">
+							<span class="block text-xs font-medium text-app-muted">Blocked addresses</span>
+							<textarea
+								bind:value={editBlockedSenderAddresses}
+								rows="3"
+								spellcheck="false"
+								placeholder="spam@example.com"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+							></textarea>
+						</label>
+						<label class="space-y-1.5">
+							<span class="block text-xs font-medium text-app-muted">Blocked domains</span>
+							<textarea
+								bind:value={editBlockedSenderDomains}
+								rows="3"
+								spellcheck="false"
+								placeholder="spam.example"
+								class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+							></textarea>
+						</label>
+					</div>
+					<p class="text-[11px] text-app-muted/50">
+						One exact address or domain per line. A domain also matches its subdomains.
+						Use the alias toggle above to block all mail.
+					</p>
+				</div>
+
 				<!-- Auto-disable -->
 				<div class="space-y-1.5">
 					<p class="text-xs font-medium text-app-muted">Auto-disable</p>
@@ -740,9 +863,10 @@
 								type="button"
 								onclick={() => {
 									editTargetEmail = alias.targetEmail ?? '';
-									editNote = alias.note ?? '';
-									editTags = [...(alias.tags ?? [])];
-									saveError = '';
+					editNote = alias.note ?? '';
+					editTags = [...(alias.tags ?? [])];
+					resetSenderRuleFields();
+					saveError = '';
 								}}
 								class="px-3 py-1.5 text-xs text-app-muted hover:text-app-text border border-app-border hover:border-app-hover rounded-lg transition-colors"
 							>
@@ -788,13 +912,23 @@
 									aria-label={entry.action}
 								></span>
 								<div class="flex-1 min-w-0">
-									<div class="flex items-center gap-2">
-										<span class="text-xs font-medium {entry.action === 'forwarded' ? 'text-green-400' : 'text-red-400'}">
-											{entry.action}
-										</span>
-										<span class="text-xs text-app-muted truncate" title={entry.from}>from {entry.from}</span>
-									</div>
-									<p class="text-xs text-app-muted/60 truncate" title={entry.to}>→ {entry.to}</p>
+								<div class="flex items-center gap-2">
+									<span class="text-xs font-medium {entry.action === 'forwarded' ? 'text-green-400' : 'text-red-400'}">
+										{entry.action === 'blocked' ? blockReasonLabel(entry.reason) : entry.action}
+									</span>
+									<span class="text-xs text-app-muted truncate" title={entry.from || undefined}>
+										from {entry.from || '(invalid sender)'}
+									</span>
+								</div>
+								{#if entry.subject}
+									<p class="text-xs text-app-text/80 truncate" title={entry.subject}>{entry.subject}</p>
+								{/if}
+								<p class="text-xs text-app-muted/60 truncate" title={entry.to}>→ {entry.to}</p>
+								{#if entry.action === 'blocked' && entry.matchedRule}
+									<p class="text-[11px] text-app-muted/50 truncate" title={entry.matchedRule}>
+										Matched {entry.matchedRule}
+									</p>
+								{/if}
 								</div>
 								<time
 									datetime={new Date(entry.at).toISOString()}

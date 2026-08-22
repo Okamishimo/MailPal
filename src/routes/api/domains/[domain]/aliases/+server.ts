@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDomain, getAlias, listAliases, putAlias } from '$lib/kv.js';
 import { generateSlug } from '$lib/sluggen.js';
 import type { AliasConfig } from '$lib/types.js';
+import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const domain = await getDomain(locals.kv, params.domain);
@@ -17,8 +18,28 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const domain = await getDomain(locals.kv, params.domain);
 	if (!domain) return json({ error: 'Domain not found' }, { status: 404 });
 
-	const body = await request.json().catch(() => ({}));
+	const body = await request.json().catch(() => ({})) as Record<string, unknown>;
 	let { localPart, targetEmail = null, note, tags, expiresAt, maxForwards } = body as { localPart?: string; targetEmail?: string | null; note?: string; tags?: string[]; expiresAt?: number; maxForwards?: number };
+	const senderRuleFields = [
+		'senderMode',
+		'allowedSenderAddresses',
+		'allowedSenderDomains',
+		'blockedSenderAddresses',
+		'blockedSenderDomains'
+	] as const;
+	let senderRules = null;
+	if (senderRuleFields.some((field) => field in body)) {
+		const result = validateSenderRules({
+			...normalizeSenderRules(null),
+			...Object.fromEntries(
+				senderRuleFields
+					.filter((field) => field in body)
+					.map((field) => [field, body[field]])
+			)
+		});
+		if (!result.ok) return json({ error: result.error }, { status: 400 });
+		senderRules = result.value!;
+	}
 
 	if (!localPart) {
 		// Auto-generate unique slug
@@ -52,7 +73,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		...(note && { note }),
 		...(tags && { tags }),
 		...(expiresAt != null && { expiresAt }),
-		...(maxForwards != null && { maxForwards })
+		...(maxForwards != null && { maxForwards }),
+		...(senderRules ?? {})
 	};
 
 	await putAlias(locals.kv, config);

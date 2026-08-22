@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import type { LogEntry } from '$lib/types.js';
 	import DemoBanner from '$lib/components/DemoBanner.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -23,6 +24,19 @@
 		const days = Math.floor(hrs / 24);
 		if (days < 30) return `${days}d ago`;
 		return new Date(at).toLocaleDateString();
+	}
+
+	function blockReasonLabel(reason: LogEntry['reason']): string {
+		if (!reason) return 'blocked';
+		return ({
+			alias_disabled: 'alias disabled',
+			global_sender_blocked: 'global sender block',
+			alias_sender_blocked: 'alias sender block',
+			sender_not_in_allowlist: 'not in allowlist',
+			alias_expired: 'alias expired',
+			forwarding_limit_reached: 'forwarding limit reached',
+			invalid_sender: 'invalid envelope sender'
+		} as const)[reason];
 	}
 </script>
 
@@ -107,14 +121,22 @@
 									{entry.action === 'forwarded'
 										? 'bg-green-400/10 text-green-400'
 										: 'bg-red-400/10 text-red-400'}">
-									{entry.action}
+									{entry.action === 'blocked' ? blockReasonLabel(entry.reason) : entry.action}
 								</span>
 							</div>
+							{#if entry.subject}
+								<p class="text-sm text-app-text/90 truncate" title={entry.subject}>{entry.subject}</p>
+							{/if}
 							<div class="flex items-center gap-3 text-xs text-app-muted flex-wrap">
-								<span class="truncate" title={entry.from}>from {entry.from}</span>
+								<span class="truncate" title={entry.from || undefined}>from {entry.from || '(invalid sender)'}</span>
 								<span class="shrink-0">→</span>
 								<span class="truncate" title={entry.to}>{entry.to}</span>
 							</div>
+							{#if entry.action === 'blocked' && entry.matchedRule}
+								<p class="text-[11px] text-app-muted/60 truncate" title={entry.matchedRule}>
+									Matched rule: {entry.matchedRule}
+								</p>
+							{/if}
 						</div>
 
 						<!-- Timestamp -->

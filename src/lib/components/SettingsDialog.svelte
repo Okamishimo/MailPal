@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DestinationAddress, Tag } from '$lib/types.js';
+	import type { DestinationAddress, GlobalSenderBlocklist, Tag } from '$lib/types.js';
 	import Dialog from './Dialog.svelte';
 	import ColorPicker from './ColorPicker.svelte';
   import { randomSwatchColor, SWATCHES } from '$lib/constants';
@@ -13,7 +13,9 @@
 		onRemoved,
 		onTagCreated,
 		onTagDeleted,
-		onTagUpdated
+		onTagUpdated,
+		globalSenderBlocklist,
+		onGlobalSenderBlocklistUpdated
 	}: {
 		open: boolean;
 		destinations: DestinationAddress[];
@@ -24,6 +26,8 @@
 		onTagCreated: (tag: Tag) => void;
 		onTagDeleted: (name: string) => void;
 		onTagUpdated: (tag: Tag) => void;
+		globalSenderBlocklist: GlobalSenderBlocklist;
+		onGlobalSenderBlocklistUpdated: (blocklist: GlobalSenderBlocklist) => void;
 	} = $props();
 
 	let newEmail = $state('');
@@ -40,6 +44,59 @@
 	let showTagForm = $state(false);
 	let showDestinationForm = $state(false);
 	let deletingTag = $state<string | null>(null);
+
+	// Global sender blocklist form state
+	let globalBlockedAddresses = $state('');
+	let globalBlockedDomains = $state('');
+	let savingGlobalBlocklist = $state(false);
+	let globalBlocklistError = $state('');
+	let globalBlocklistSaved = $state(false);
+
+	function rulesToText(rules: string[]): string {
+		return rules.join('\n');
+	}
+
+	function textToRules(value: string): string[] {
+		return value.split(/[\n,]+/).map((entry) => entry.trim()).filter(Boolean);
+	}
+
+	$effect(() => {
+		if (!open) return;
+		globalBlockedAddresses = rulesToText(globalSenderBlocklist.blockedSenderAddresses);
+		globalBlockedDomains = rulesToText(globalSenderBlocklist.blockedSenderDomains);
+		globalBlocklistError = '';
+		globalBlocklistSaved = false;
+	});
+
+	async function saveGlobalBlocklist() {
+		savingGlobalBlocklist = true;
+		globalBlocklistError = '';
+		globalBlocklistSaved = false;
+		try {
+			const res = await fetch('/api/settings/sender-blocklist', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					blockedSenderAddresses: textToRules(globalBlockedAddresses),
+					blockedSenderDomains: textToRules(globalBlockedDomains)
+				})
+			});
+			const body = await res.json();
+			if (!res.ok) {
+				globalBlocklistError = body.error ?? 'Failed to save global blocklist';
+				return;
+			}
+			const updated = body as GlobalSenderBlocklist;
+			onGlobalSenderBlocklistUpdated(updated);
+			globalBlockedAddresses = rulesToText(updated.blockedSenderAddresses);
+			globalBlockedDomains = rulesToText(updated.blockedSenderDomains);
+			globalBlocklistSaved = true;
+		} catch {
+			globalBlocklistError = 'Network error';
+		} finally {
+			savingGlobalBlocklist = false;
+		}
+	}
 
 	async function handleAdd(e: Event) {
 		e.preventDefault();
@@ -146,12 +203,14 @@
 		newTagColor = '#3b82f6';
 		showTagForm = false;
 		addTagError = '';
+		globalBlocklistError = '';
+		globalBlocklistSaved = false;
 		onClose();
 	}
 </script>
 
 <Dialog open={open} title="Settings" onClose={handleClose}>
-	<div class="p-6 space-y-4">
+	<div class="p-6 space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
 
 		<!-- Section header -->
 		<div>
@@ -259,6 +318,56 @@
 				+ Add destination address
 			</button>
 		{/if}
+
+		<div class="border-t border-app-border"></div>
+
+		<!-- Global sender blocklist -->
+		<div class="space-y-3">
+			<div>
+				<h3 class="text-sm font-semibold text-app-text mb-0.5">Global Sender Blocklist</h3>
+				<p class="text-xs text-app-muted leading-relaxed">
+					These envelope senders are blocked for every alias. One exact address or domain per line.
+					Domain rules also match subdomains.
+				</p>
+			</div>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<label class="space-y-1.5">
+					<span class="block text-xs font-medium text-app-muted">Blocked addresses</span>
+					<textarea
+						bind:value={globalBlockedAddresses}
+						rows="4"
+						spellcheck="false"
+						placeholder="spam@example.com"
+						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+					></textarea>
+				</label>
+				<label class="space-y-1.5">
+					<span class="block text-xs font-medium text-app-muted">Blocked domains</span>
+					<textarea
+						bind:value={globalBlockedDomains}
+						rows="4"
+						spellcheck="false"
+						placeholder="spam.example"
+						class="w-full resize-y px-3 py-2 rounded-lg border border-app-border bg-app-hover font-mono text-xs text-app-text placeholder:text-app-muted/50 focus:outline-none focus:border-app-accent/60 transition-colors"
+					></textarea>
+				</label>
+			</div>
+			<div class="flex items-center justify-end gap-2">
+				{#if globalBlocklistError}
+					<span role="alert" class="text-xs text-red-400">{globalBlocklistError}</span>
+				{:else if globalBlocklistSaved}
+					<span class="text-xs text-green-400">Saved</span>
+				{/if}
+				<button
+					type="button"
+					onclick={saveGlobalBlocklist}
+					disabled={savingGlobalBlocklist}
+					class="px-3 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
+				>
+					{savingGlobalBlocklist ? 'Saving…' : 'Save blocklist'}
+				</button>
+			</div>
+		</div>
 
 		<div class="border-t border-app-border"></div>
 
