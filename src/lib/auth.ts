@@ -1,7 +1,27 @@
 import { sealData, unsealData } from 'iron-session';
 
 export const COOKIE_NAME = 'mailpal_session';
-export const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+/**
+ * Idle (sliding) session lifetime in seconds. The sealed token expires this long
+ * after it was last issued; every authenticated request re-issues it (see
+ * hooks.server.ts), so the window resets on activity and lapses after inactivity.
+ */
+export const SESSION_IDLE_TTL = 60 * 60; // 1 hour of inactivity
+
+/**
+ * Cookie attributes shared by login and the per-request sliding refresh.
+ *
+ * Deliberately omits `maxAge`/`expires`, making this a session cookie: the
+ * browser drops it when it closes, so reopening the site requires a fresh login.
+ * The 1-hour idle expiry is enforced server-side by the sealed token's TTL.
+ */
+export const SESSION_COOKIE_OPTIONS = {
+	path: '/',
+	httpOnly: true,
+	secure: true,
+	sameSite: 'lax'
+} as const;
 
 interface SessionData {
 	authenticated: boolean;
@@ -27,7 +47,7 @@ async function deriveKey(secret: string): Promise<string> {
  */
 export async function createSession(secret: string): Promise<string> {
 	const data: SessionData = { authenticated: true };
-	return sealData(data, { password: await deriveKey(secret), ttl: COOKIE_MAX_AGE });
+	return sealData(data, { password: await deriveKey(secret), ttl: SESSION_IDLE_TTL });
 }
 
 /**
@@ -39,7 +59,7 @@ export async function verifySession(sealed: string | undefined, secret: string):
 	try {
 		const data = await unsealData<SessionData>(sealed, {
 			password: await deriveKey(secret),
-			ttl: COOKIE_MAX_AGE
+			ttl: SESSION_IDLE_TTL
 		});
 		return data.authenticated === true;
 	} catch {

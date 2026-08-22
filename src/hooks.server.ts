@@ -1,6 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { verifySession, COOKIE_NAME } from '$lib/auth.js';
+import { createSession, verifySession, COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '$lib/auth.js';
 import { verifyAccessJwt } from '$lib/access-jwt.js';
 import { DemoKV, type DemoDelta } from '$lib/demo-kv.js';
 
@@ -107,6 +107,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const sealed = event.cookies.get(COOKIE_NAME);
 		const sessionSecret = platform.env.SESSION_SECRET || authPassword!;
 		event.locals.authenticated = await verifySession(sealed, sessionSecret);
+
+		// Sliding idle timeout: re-issue the token on every authenticated request
+		// so the 1-hour expiry resets on activity. After an hour of inactivity the
+		// token lapses, verifySession fails, and the user is sent back to /login.
+		if (event.locals.authenticated) {
+			const refreshed = await createSession(sessionSecret);
+			event.cookies.set(COOKIE_NAME, refreshed, SESSION_COOKIE_OPTIONS);
+		}
 	}
 
 	const pathname = event.url.pathname;

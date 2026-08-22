@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createSession, constantTimeEqual, COOKIE_NAME, COOKIE_MAX_AGE } from '$lib/auth.js';
+import { createSession, constantTimeEqual, COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '$lib/auth.js';
 
 // Brute-force throttle: at most MAX_ATTEMPTS failed logins per IP per window.
 const MAX_ATTEMPTS = 5;
@@ -50,13 +50,7 @@ export const actions: Actions = {
 		const sessionSecret = platform?.env?.SESSION_SECRET || authPassword;
 		const sealed = await createSession(sessionSecret);
 
-		cookies.set(COOKIE_NAME, sealed, {
-			path: '/',
-			httpOnly: true,
-			secure: true,
-			sameSite: 'lax',
-			maxAge: COOKIE_MAX_AGE
-		});
+		cookies.set(COOKIE_NAME, sealed, SESSION_COOKIE_OPTIONS);
 
 		throw redirect(302, '/');
 	}
