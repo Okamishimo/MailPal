@@ -54,13 +54,13 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				error = body.error ?? 'Failed to create domain';
+				error = body.error ?? '建立網域失敗';
 			} else {
 				createdDomain = body as DomainConfig;
 				onCreated(createdDomain);
 			}
 		} catch {
-			error = 'Network error';
+			error = '網路連線錯誤';
 		} finally {
 			saving = false;
 		}
@@ -72,7 +72,7 @@
 	}
 </script>
 
-<Dialog {open} title="Add domain" onClose={handleClose}>
+<Dialog {open} title="新增網域" onClose={handleClose}>
 	{#if createdDomain}
 		<!-- ── Success + Cloudflare setup guide ───────────────────────────── -->
 		<div class="p-6 space-y-5">
@@ -84,9 +84,9 @@
 				</div>
 				<div>
 					<p class="text-sm font-medium text-app-text">
-						<span class="font-mono text-app-accent">{createdDomain.domain}</span> added successfully
+						已成功新增 <span class="font-mono text-app-accent">{createdDomain.domain}</span>
 					</p>
-					<p class="text-xs text-app-muted mt-0.5">Now configure Email Routing in Cloudflare to activate it.</p>
+					<p class="text-xs text-app-muted mt-0.5">接著請在 Cloudflare 設定電子郵件路由，以啟用此網域。</p>
 				</div>
 			</div>
 
@@ -96,13 +96,13 @@
 						<path fill="#F48120" d="M63.5 56.3l1.5-5.1c0 0-6.8-3.5-13.8.2l-0.2 0.1c-5.2 2.8-8.2 7.9-8.2 7.9H28.6l-1.5 4.8H43c1.5 4.5 6.2 7.3 11.1 6.5 4.3-0.8 7.8-4 8.8-8.2l0.6-6.2z"/>
 						<path fill="#FBAD41" d="M66.4 46.4c-0.3-1.1-0.7-2.2-1.3-3.2-3.7-6.1-12-8.1-18.6-4.5-2.6 1.4-4.7 3.6-6 6.1C38.1 44.3 36 44.5 34.2 45.5c-2.5 1.4-4 3.8-4.1 6.5h42.3C71.9 48.3 69.4 46.4 66.4 46.4z"/>
 					</svg>
-					<span class="text-xs font-semibold uppercase tracking-widest text-app-muted">Cloudflare setup</span>
+					<span class="text-xs font-semibold uppercase tracking-widest text-app-muted">Cloudflare 設定</span>
 				</div>
 				<ol class="space-y-3">
 					{#each [
-						{ title: 'Enable Email Routing', body: 'In the Cloudflare dashboard, open your domain and go to Email → Email Routing. Click Enable Email Routing if it isn\'t already active.' },
-						{ title: 'Add a catch-all routing rule', body: 'Under Routing Rules, scroll to the Catch-all address row and click Edit. Set the action to Send to a Worker.' },
-						{ title: 'Select the email worker', body: 'Choose your mailpal-email-worker from the worker list, then save the rule. All mail to any address @' + createdDomain.domain + ' will now be handled by MailPal.' },
+						{ title: '啟用電子郵件路由', body: '在 Cloudflare 控制台開啟您的網域，前往「電子郵件 → 電子郵件路由」。如果尚未啟用，請按下「啟用電子郵件路由」。' },
+						{ title: '新增全部擷取路由規則', body: '在「路由規則」中找到「全部擷取地址」並按下「編輯」，將動作設為「傳送至 Worker」。' },
+						{ title: '選擇電子郵件 Worker', body: '從 Worker 清單選擇 nythros-mail，然後儲存規則。之後所有寄到 @' + createdDomain.domain + ' 任意地址的信件都會由 MailPal 處理。' },
 					] as item, i}
 						<li class="flex gap-3">
 							<span class="flex-none w-5 h-5 mt-0.5 rounded-full border border-app-border text-[11px] font-bold text-app-muted flex items-center justify-center" aria-hidden="true">
@@ -122,7 +122,7 @@
 					onclick={handleClose}
 					class="px-4 py-2 text-sm font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all"
 				>
-					Done
+					完成
 				</button>
 			</div>
 		</div>
@@ -132,14 +132,14 @@
 			<div>
 				<div class="flex items-center justify-between mb-1.5">
 					<label for="ed-target" class="text-sm font-medium text-app-text">
-						Domain color
+						網域顏色
 					</label>
 				</div>
 				<ColorPicker bind:value={color} open={true} size={6} />
 			</div>
 
 			<div>
-				<label for="cd-domain" class="block text-sm font-medium text-app-text mb-1.5">Domain</label>
+				<label for="cd-domain" class="block text-sm font-medium text-app-text mb-1.5">網域</label>
 				<input
 					id="cd-domain"
 					type="text"
@@ -153,28 +153,28 @@
 
 			<div>
 				<label for="cd-target" class="block text-sm font-medium text-app-text mb-1.5">
-					Default target email
+					預設轉寄地址
 				</label>
 				<DestinationSelect
 					id="cd-target"
 					{destinations}
 					bind:value={targetEmail}
-					placeholder="Select destination address…"
+					placeholder="選擇轉寄地址…"
 				/>
-				<p class="text-xs text-app-muted mt-1.5">Where emails forward by default</p>
+				<p class="text-xs text-app-muted mt-1.5">信件預設要轉寄到的地址</p>
 			</div>
 
 			<div class="flex items-center justify-between py-1">
 				<div>
-					<p class="text-sm font-medium text-app-text">Wildcard mode</p>
-					<p class="text-xs text-app-muted mt-0.5">Auto-create aliases on first use</p>
+					<p class="text-sm font-medium text-app-text">萬用字元模式</p>
+					<p class="text-xs text-app-muted mt-0.5">首次收到信件時自動建立別名</p>
 				</div>
 				<Switch.Root
 					checked={wildcardEnabled}
 					onCheckedChange={(v) => (wildcardEnabled = v)}
 					class="relative inline-flex h-5 w-9 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-app-accent
 						data-[state=checked]:bg-app-accent data-[state=unchecked]:bg-app-border"
-					aria-label="Toggle wildcard mode"
+					aria-label="切換萬用字元模式"
 				>
 					<Switch.Thumb
 						class="block h-3.5 w-3.5 mt-[3px] rounded-full bg-white shadow transition-transform
@@ -193,7 +193,7 @@
 					onclick={handleClose}
 					class="px-4 py-2 text-sm text-app-muted hover:text-app-text border border-app-border hover:border-app-hover rounded-lg transition-colors"
 				>
-					Cancel
+					取消
 				</button>
 				<button
 					type="submit"
@@ -201,7 +201,7 @@
 					aria-busy={saving}
 					class="px-4 py-2 text-sm font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
 				>
-					{saving ? 'Creating…' : 'Create domain'}
+					{saving ? '建立中…' : '建立網域'}
 				</button>
 			</div>
 		</form>

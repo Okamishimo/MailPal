@@ -99,9 +99,9 @@ function validateList(
 	field: string,
 	kind: 'address' | 'domain'
 ): SenderRuleValidationResult<string[]> {
-	if (!Array.isArray(value)) return { ok: false, error: `${field} must be an array` };
+	if (!Array.isArray(value)) return { ok: false, error: `${field} 必須是陣列` };
 	if (value.length > MAX_RULES_PER_LIST) {
-		return { ok: false, error: `${field} may contain at most ${MAX_RULES_PER_LIST} entries` };
+		return { ok: false, error: `${field} 最多只能包含 ${MAX_RULES_PER_LIST} 筆規則` };
 	}
 
 	const normalize = kind === 'address' ? normalizeEmailAddress : normalizeDomain;
@@ -111,7 +111,7 @@ function validateList(
 		if (!rule) {
 			return {
 				ok: false,
-				error: `Invalid sender ${kind} in ${field}: ${typeof entry === 'string' ? entry.trim() : 'non-string value'}`
+				error: `${field} 中包含無效的寄件者${kind === 'address' ? '地址' : '網域'}：${typeof entry === 'string' ? entry.trim() : '非字串值'}`
 			};
 		}
 		normalized.push(rule);
@@ -121,10 +121,10 @@ function validateList(
 }
 
 export function validateSenderRules(value: unknown): SenderRuleValidationResult<NormalizedSenderRules> {
-	if (!value || typeof value !== 'object') return { ok: false, error: 'Sender rules must be an object' };
+	if (!value || typeof value !== 'object') return { ok: false, error: '寄件者規則必須是物件' };
 	const input = value as Partial<NormalizedSenderRules>;
 	if (input.senderMode !== 'normal' && input.senderMode !== 'allowlist') {
-		return { ok: false, error: 'senderMode must be normal or allowlist' };
+		return { ok: false, error: 'senderMode 必須是 normal 或 allowlist' };
 	}
 
 	const allowedAddresses = validateList(input.allowedSenderAddresses, 'allowedSenderAddresses', 'address');
@@ -149,7 +149,7 @@ export function validateSenderRules(value: unknown): SenderRuleValidationResult<
 }
 
 export function validateGlobalSenderBlocklist(value: unknown): SenderRuleValidationResult<GlobalSenderBlocklist> {
-	if (!value || typeof value !== 'object') return { ok: false, error: 'Global sender blocklist must be an object' };
+	if (!value || typeof value !== 'object') return { ok: false, error: '全域寄件者封鎖清單必須是物件' };
 	const input = value as Partial<GlobalSenderBlocklist>;
 	const addresses = validateList(input.blockedSenderAddresses, 'blockedSenderAddresses', 'address');
 	if (!addresses.ok) return { ok: false, error: addresses.error };

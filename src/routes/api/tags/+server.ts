@@ -17,20 +17,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { name, color } = body as { name?: string; color?: string };
 
 	if (!name || !name.trim()) {
-		return json({ error: 'Tag name is required' }, { status: 400 });
+		return json({ error: '請輸入標籤名稱' }, { status: 400 });
 	}
 
 	const trimmedName = name.trim();
 	if (trimmedName.length > TAG_NAME_MAX_LENGTH) {
-		return json({ error: `Tag name must be ${TAG_NAME_MAX_LENGTH} characters or fewer` }, { status: 400 });
+		return json({ error: `標籤名稱不可超過 ${TAG_NAME_MAX_LENGTH} 個字元` }, { status: 400 });
 	}
 
 	if (color !== undefined && !HEX_COLOR_RE.test(color)) {
-		return json({ error: 'Invalid color value' }, { status: 400 });
+		return json({ error: '顏色值無效' }, { status: 400 });
 	}
 
 	const existing = await locals.kv.get(`tag:${trimmedName}`);
-	if (existing) return json({ error: 'Tag already exists' }, { status: 409 });
+	if (existing) return json({ error: '此標籤已存在' }, { status: 409 });
 
 	const tag: Tag = {
 		name: trimmedName,

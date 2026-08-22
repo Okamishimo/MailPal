@@ -86,7 +86,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	if (!event.locals.authenticated && !isLoginRoute) {
 		if (isApiRoute) {
-			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+			return new Response(JSON.stringify({ error: '未授權' }), {
 				status: 401,
 				headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS }
 			});

@@ -17,14 +17,14 @@
 
 	<!-- Expanded swatch grid -->
 	{#if open}
-		<div class="flex items-center gap-1.5" role="radiogroup" aria-label="Domain color">
+		<div class="flex items-center gap-1.5" role="radiogroup" aria-label="網域顏色">
 			{#each SWATCHES as swatch (swatch.hue)}
 				{@const selected = value?.toLowerCase() === swatch.hex.toLowerCase()}
 				<button
 					type="button"
 					role="radio"
 					aria-checked={selected}
-					aria-label="Hue {swatch.hue}°"
+					aria-label="色相 {swatch.hue}°"
 					data-selected={selected}
 					onclick={() => select(swatch.hex)}
 					class="w-{size} h-{size} rounded-full shrink-0 transition-all hover:scale-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-app-accent relative"
@@ -36,9 +36,9 @@
 				<button
 					type="button"
 					onclick={() => { value = undefined; open = false; }}
-					aria-label="Reset to auto color"
+					aria-label="重設為自動配色"
 					class="w-4 h-4 rounded-full shrink-0 border border-dashed border-app-border flex items-center justify-center text-app-muted hover:text-app-text hover:border-app-muted transition-colors"
-					title="Reset to auto"
+					title="重設為自動配色"
 				>
 					<svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
@@ -51,7 +51,7 @@
 		<button
 			type="button"
 			onclick={() => (open = !open)}
-			aria-label="Change domain color"
+			aria-label="變更網域顏色"
 			aria-expanded={open}
 			class="group relative w-{size} h-{size} rounded-full shrink-0 transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-accent"
 			style="background-color: {value ?? '#5c6492'}"

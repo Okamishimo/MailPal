@@ -18,20 +18,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { domain, targetEmail, wildcardEnabled = false, color } = body as Partial<DomainConfig>;
 
 	if (!domain || !targetEmail) {
-		return json({ error: 'domain and targetEmail are required' }, { status: 400 });
+		return json({ error: '網域與轉寄地址為必填欄位' }, { status: 400 });
 	}
 
 	if (!DOMAIN_RE.test(domain)) {
-		return json({ error: 'Invalid domain name' }, { status: 400 });
+		return json({ error: '網域名稱無效' }, { status: 400 });
 	}
 
 	if (color !== undefined && color !== null && !HEX_COLOR_RE.test(color)) {
-		return json({ error: 'Invalid color value' }, { status: 400 });
+		return json({ error: '顏色值無效' }, { status: 400 });
 	}
 
 	const existing = await getDomain(locals.kv, domain);
 	if (existing) {
-		return json({ error: 'Domain already exists' }, { status: 409 });
+		return json({ error: '此網域已存在' }, { status: 409 });
 	}
 
 	const config: DomainConfig = {

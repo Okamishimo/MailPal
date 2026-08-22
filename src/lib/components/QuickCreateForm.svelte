@@ -78,10 +78,10 @@
 				expiresAt = null;
 				maxForwards = null;
 			} else {
-				error = body.error ?? 'Failed to create alias';
+				error = body.error ?? '建立別名失敗';
 			}
 		} catch {
-			error = 'Network error';
+			error = '網路連線錯誤';
 		} finally {
 			creating = false;
 		}
@@ -92,9 +92,9 @@
 	{#if domains.length === 0}
 		<p class="text-sm text-app-muted">
 			<button onclick={onAddDomain} class="text-app-accent hover:underline underline-offset-2">
-				Add a domain
+				新增網域
 			</button>
-			first to start creating aliases.
+			後即可開始建立別名。
 		</p>
 	{:else}
 		<form onsubmit={handleSubmit} aria-describedby={error ? errorId : undefined}>
@@ -103,13 +103,13 @@
 				<div
 					class="flex items-stretch rounded-lg border border-app-border bg-app-surface overflow-hidden focus-within:border-app-accent/60 transition-colors flex-1 min-w-48"
 				>
-					<label for="new-local-part" class="sr-only">Alias local part</label>
+					<label for="new-local-part" class="sr-only">別名名稱</label>
 					<input
 						bind:this={localPartInputEl}
 						id="new-local-part"
 						bind:value={newLocalPart}
 						type="text"
-						placeholder="New address"
+						placeholder="新增地址"
 						autocomplete="off"
 						autocapitalize="none"
 						class="flex-1 px-3 py-2.5 bg-transparent text-sm text-app-text placeholder:text-app-muted outline-none min-w-0"
@@ -131,7 +131,7 @@
 						>
 							<Select.Trigger
 								class="flex items-center gap-1.5 px-3 border-l border-app-border text-app-muted text-sm whitespace-nowrap hover:text-app-text transition-colors cursor-pointer outline-none"
-								aria-label="Select domain"
+								aria-label="選擇網域"
 							>
 								@{newDomain}
 								<svg class="w-3 h-3 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -166,7 +166,7 @@
 						<Tooltip.Trigger
 							type="button"
 							onclick={() => (newLocalPart = generateSlug())}
-							aria-label="Generate a random alias name"
+							aria-label="產生隨機別名"
 							class="px-3 border-l border-app-border text-app-muted hover:text-app-accent transition-colors"
 						>
 							<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -184,7 +184,7 @@
 								sideOffset={8}
 								side="bottom"
 							>
-								Generate random alias
+								產生隨機別名
 								<Tooltip.Arrow class="text-app-border" />
 							</Tooltip.Content>
 						</Tooltip.Portal>
@@ -198,7 +198,7 @@
 									<Popover.Trigger
 										{...props}
 										type="button"
-										aria-label="Set expiry"
+										aria-label="設定自動停用條件"
 										class="px-3 border-l border-app-border transition-colors
 											{hasExpiry ? 'text-app-accent' : 'text-app-muted hover:text-app-accent'}"
 									>
@@ -215,7 +215,7 @@
 									sideOffset={8}
 									side="bottom"
 								>
-									{hasExpiry ? 'Edit expiry' : 'Set expiry'}
+									{hasExpiry ? '編輯自動停用條件' : '設定自動停用條件'}
 									<Tooltip.Arrow class="text-app-border" />
 								</Tooltip.Content>
 							</Tooltip.Portal>
@@ -228,12 +228,12 @@
 								align="end"
 								class="z-50 w-80 rounded-xl border border-app-border bg-app-surface shadow-xl p-3 space-y-3"
 							>
-								<p class="text-xs font-semibold text-app-text">Auto-disable</p>
+								<p class="text-xs font-semibold text-app-text">自動停用</p>
 
 								<!-- Mode pills -->
 								<div class="flex gap-1.5">
 									{#each (['none', 'date', 'count'] as const) as mode (mode)}
-										{@const label = mode === 'none' ? 'Never' : mode === 'date' ? 'After date' : 'After N emails'}
+										{@const label = mode === 'none' ? '永不' : mode === 'date' ? '指定日期後' : '指定信件數後'}
 										<button
 											type="button"
 											onclick={() => { expiryMode = mode; }}
@@ -256,7 +256,7 @@
 											min={new Date().toISOString().slice(0, 10)}
 											class="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text focus:outline-none focus:border-app-accent/60 transition-colors [color-scheme:dark]"
 										/>
-										<p class="text-xs text-app-muted">Alias is disabled after this date.</p>
+										<p class="text-xs text-app-muted">到達此日期後自動停用別名。</p>
 									</div>
 								{:else if expiryMode === 'count'}
 									<div class="space-y-1">
@@ -266,11 +266,11 @@
 												value={maxForwards ?? ''}
 												oninput={(e) => { const v = parseInt(e.currentTarget.value, 10); maxForwards = isNaN(v) || v < 1 ? null : v; }}
 												min="1"
-												placeholder="e.g. 10"
+												placeholder="例如 10"
 												class="w-full px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
 											/>
 										</div>
-										<p class="text-xs text-app-muted">Alias is disabled after this many forwards.</p>
+										<p class="text-xs text-app-muted">達到此轉寄次數後自動停用別名。</p>
 									</div>
 								{/if}
 							</Popover.Content>
@@ -284,7 +284,7 @@
 					aria-busy={creating}
 					class="px-5 py-2.5 rounded-lg bg-app-accent text-app-bg text-sm border border-app-bg font-semibold hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
 				>
-					Create
+					建立
 				</button>
 			</div>
 

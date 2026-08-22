@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>Login — MailPal</title>
+	<title>登入 — MailPal</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center bg-app-bg p-4">
@@ -31,13 +31,13 @@
 					</svg>
 				</div>
 				<h1 class="text-2xl font-bold text-app-text">MailPal</h1>
-				<p class="text-sm text-app-muted mt-1">Email alias manager</p>
+				<p class="text-sm text-app-muted mt-1">電子郵件別名管理工具</p>
 			</div>
 
 			<form method="POST" class="space-y-4">
 				<div>
 					<label for="password" class="block text-sm font-medium text-app-text mb-1.5">
-						Password
+						密碼
 					</label>
 					<input
 						id="password"
@@ -46,7 +46,7 @@
 						required
 						autocomplete="current-password"
 						class="w-full px-3 py-2.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted focus:outline-none focus:border-app-accent/60 transition-colors"
-						placeholder="Enter your password"
+						placeholder="請輸入密碼"
 					/>
 				</div>
 
@@ -58,7 +58,7 @@
 					type="submit"
 					class="w-full py-2.5 px-4 bg-app-accent hover:brightness-110 text-app-bg text-sm font-semibold rounded-lg transition-all"
 				>
-					Sign in
+					登入
 				</button>
 			</form>
 		</div>

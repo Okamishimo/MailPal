@@ -45,7 +45,7 @@
 
 <aside
 	class="w-64 shrink-0 flex flex-col bg-app-sidebar border-r border-app-border"
-	aria-label="Sidebar"
+	aria-label="側邊欄"
 >
 	<!-- Brand -->
 	<div class="px-5 py-5 flex items-center gap-3">
@@ -64,8 +64,8 @@
 				value={search}
 				oninput={(e) => onSearchChange(e.currentTarget.value)}
 				type="search"
-				placeholder="Search"
-				aria-label="Search aliases"
+				placeholder="搜尋"
+				aria-label="搜尋別名"
 				class="flex-1 bg-transparent text-sm text-app-text placeholder:text-app-muted outline-none min-w-0"
 			/>
 		</label>
@@ -74,12 +74,12 @@
 	<!-- Domains section header -->
 	<div class="px-4 mb-2 flex items-center justify-between">
 		<span class="text-[11px] font-semibold uppercase tracking-widest text-app-muted" id="domains-label">
-			Domains
+			網域
 		</span>
 		<Tooltip.Root delayDuration={300}>
 			<Tooltip.Trigger
 				onclick={onAddDomain}
-				aria-label="Add domain"
+				aria-label="新增網域"
 				class="w-5 h-5 rounded flex items-center justify-center text-app-muted hover:text-app-text hover:bg-app-hover transition-colors text-base leading-none"
 			>+</Tooltip.Trigger>
 			<Tooltip.Portal>
@@ -88,7 +88,7 @@
 					sideOffset={4}
 					side="left"
 				>
-					Add domain
+					新增網域
 					<Tooltip.Arrow class="text-app-border" />
 				</Tooltip.Content>
 			</Tooltip.Portal>
@@ -111,9 +111,9 @@
 				<svg class="w-2 h-2 shrink-0 opacity-50" fill="currentColor" viewBox="0 0 8 8" aria-hidden="true">
 					<circle cx="4" cy="4" r="4" />
 				</svg>
-				<span class="flex-1 text-left">All</span>
+				<span class="flex-1 text-left">全部</span>
 			</button>
-			<span class="pr-3 text-xs text-app-muted min-w-[2rem] text-right shrink-0" aria-label="{totalCount} aliases">
+			<span class="pr-3 text-xs text-app-muted min-w-[2rem] text-right shrink-0" aria-label="{totalCount} 個別名">
 				{totalCount}
 			</span>
 		</div>
@@ -143,7 +143,7 @@
 				<Tooltip.Root delayDuration={300}>
 					<Tooltip.Trigger
 						onclick={() => onEditDomain(domain)}
-						aria-label="Settings for {domain.domain}"
+						aria-label="{domain.domain} 的設定"
 						class="p-1.5 opacity-0 group-hover/item:opacity-100 text-app-muted hover:text-app-text transition-all shrink-0 rounded"
 					>
 						<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -156,7 +156,7 @@
 							class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md"
 							sideOffset={4}
 						>
-							Domain settings
+							網域設定
 							<Tooltip.Arrow class="text-app-border" />
 						</Tooltip.Content>
 					</Tooltip.Portal>
@@ -164,7 +164,7 @@
 
 				<span
 					class="pr-3 text-xs text-app-muted min-w-[2rem] text-right shrink-0"
-					aria-label="{count} aliases"
+					aria-label="{count} 個別名"
 				>
 					{count}
 				</span>
@@ -172,7 +172,7 @@
 		{/each}
 
 		{#if domains.length === 0}
-			<p class="px-3 py-3 text-xs text-app-muted italic">No domains yet</p>
+			<p class="px-3 py-3 text-xs text-app-muted italic">尚未新增網域</p>
 		{/if}
 	</nav>
 
@@ -181,14 +181,14 @@
 		<!-- Activity -->
 		<a
 			href="/activity"
-			aria-label="Activity log"
-			title="Activity log"
+			aria-label="活動紀錄"
+			title="活動紀錄"
 			class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-app-muted hover:text-app-text hover:bg-app-hover/60 transition-colors"
 		>
 			<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
 			</svg>
-			Activity
+			活動紀錄
 		</a>
 
 		<!-- Divider -->
@@ -197,28 +197,28 @@
 		<!-- Settings -->
 		<button
 			onclick={onOpenSettings}
-			aria-label="Settings"
-			title="Settings"
+			aria-label="設定"
+			title="設定"
 			class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-app-muted hover:text-app-text hover:bg-app-hover/60 transition-colors"
 		>
 			<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 			</svg>
-			Settings
+			設定
 		</button>
 
 		{#if authMode === 'password'}
 			<form method="POST" action="/logout" class="ml-auto">
 				<button
 					class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-app-muted hover:text-app-text hover:bg-app-hover/60 transition-colors"
-					aria-label="Logout"
-					title="Logout"
+					aria-label="登出"
+					title="登出"
 				>
 					<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
 					</svg>
-					Logout
+					登出
 				</button>
 			</form>
 		{/if}

@@ -17,31 +17,31 @@
 	function relativeTime(at: number): string {
 		const diff = Date.now() - at;
 		const mins = Math.floor(diff / 60_000);
-		if (mins < 1) return 'just now';
-		if (mins < 60) return `${mins}m ago`;
+		if (mins < 1) return '剛剛';
+		if (mins < 60) return `${mins} 分鐘前`;
 		const hrs = Math.floor(mins / 60);
-		if (hrs < 24) return `${hrs}h ago`;
+		if (hrs < 24) return `${hrs} 小時前`;
 		const days = Math.floor(hrs / 24);
-		if (days < 30) return `${days}d ago`;
-		return new Date(at).toLocaleDateString();
+		if (days < 30) return `${days} 天前`;
+		return new Date(at).toLocaleDateString('zh-TW');
 	}
 
 	function blockReasonLabel(reason: LogEntry['reason']): string {
-		if (!reason) return 'blocked';
+		if (!reason) return '已封鎖';
 		return ({
-			alias_disabled: 'alias disabled',
-			global_sender_blocked: 'global sender block',
-			alias_sender_blocked: 'alias sender block',
-			sender_not_in_allowlist: 'not in allowlist',
-			alias_expired: 'alias expired',
-			forwarding_limit_reached: 'forwarding limit reached',
-			invalid_sender: 'invalid envelope sender'
+			alias_disabled: '別名已停用',
+			global_sender_blocked: '全域寄件者封鎖',
+			alias_sender_blocked: '別名寄件者封鎖',
+			sender_not_in_allowlist: '不在允許清單中',
+			alias_expired: '別名已到期',
+			forwarding_limit_reached: '已達轉寄上限',
+			invalid_sender: 'SMTP 信封寄件者無效'
 		} as const)[reason];
 	}
 </script>
 
 <svelte:head>
-	<title>Activity — MailPal</title>
+	<title>活動紀錄 — MailPal</title>
 </svelte:head>
 
 {#if data.demo}
@@ -56,24 +56,24 @@
 			<a
 				href="/"
 				class="p-1.5 rounded-lg text-app-muted hover:text-app-text hover:bg-app-hover transition-colors"
-				aria-label="Back home"
+				aria-label="返回首頁"
 			>
 				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
 				</svg>
 			</a>
 			<div>
-				<h1 class="text-lg font-bold">Activity</h1>
-				<p class="text-sm text-app-muted">Recent email events across all addresses</p>
+				<h1 class="text-lg font-bold">活動紀錄</h1>
+				<p class="text-sm text-app-muted">所有地址最近的電子郵件事件</p>
 			</div>
 		</div>
 
 		<!-- Summary + filter -->
 		<div class="flex items-center gap-2 flex-wrap">
 			{#each ([
-				{ value: 'all', label: 'All', count: data.entries.length },
-				{ value: 'forwarded', label: 'Forwarded', count: forwardedCount },
-				{ value: 'blocked', label: 'Blocked', count: blockedCount },
+				{ value: 'all', label: '全部', count: data.entries.length },
+				{ value: 'forwarded', label: '已轉寄', count: forwardedCount },
+				{ value: 'blocked', label: '已封鎖', count: blockedCount },
 			] as const) as opt}
 				<button
 					type="button"
@@ -100,17 +100,17 @@
 				<svg class="w-10 h-10 mx-auto text-app-muted/40 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 				</svg>
-				<p class="text-sm text-app-muted">No activity yet.</p>
-				<p class="text-xs text-app-muted/60 mt-1">Events appear here after emails are received.</p>
+				<p class="text-sm text-app-muted">目前尚無活動紀錄。</p>
+				<p class="text-xs text-app-muted/60 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
 			</div>
 		{:else}
-			<ol class="space-y-2" aria-label="Activity log">
+			<ol class="space-y-2" aria-label="活動紀錄">
 				{#each entries as entry (`${entry.domain}/${entry.localPart}/${entry.at}`)}
 					<li class="flex items-start gap-3 px-4 py-3 rounded-xl border border-app-border bg-app-surface hover:border-app-hover transition-colors">
 						<!-- Action dot -->
 						<span
 							class="mt-[0.4rem] w-2 h-2 rounded-full shrink-0 {entry.action === 'forwarded' ? 'bg-green-400' : 'bg-red-400'}"
-							aria-label={entry.action}
+							aria-label={entry.action === 'forwarded' ? '已轉寄' : '已封鎖'}
 						></span>
 
 						<!-- Main content -->
@@ -128,13 +128,13 @@
 								<p class="text-sm text-app-text/90 truncate" title={entry.subject}>{entry.subject}</p>
 							{/if}
 							<div class="flex items-center gap-3 text-xs text-app-muted flex-wrap">
-								<span class="truncate" title={entry.from || undefined}>from {entry.from || '(invalid sender)'}</span>
+								<span class="truncate" title={entry.from || undefined}>寄件者：{entry.from || '（無效的寄件者）'}</span>
 								<span class="shrink-0">→</span>
 								<span class="truncate" title={entry.to}>{entry.to}</span>
 							</div>
 							{#if entry.action === 'blocked' && entry.matchedRule}
 								<p class="text-[11px] text-app-muted/60 truncate" title={entry.matchedRule}>
-									Matched rule: {entry.matchedRule}
+									符合的規則：{entry.matchedRule}
 								</p>
 							{/if}
 						</div>
@@ -142,7 +142,7 @@
 						<!-- Timestamp -->
 						<time
 							datetime={new Date(entry.at).toISOString()}
-							title={new Date(entry.at).toLocaleString()}
+							title={new Date(entry.at).toLocaleString('zh-TW')}
 							class="text-xs text-app-muted/60 shrink-0 tabular-nums"
 						>
 							{relativeTime(entry.at)}
@@ -151,9 +151,9 @@
 				{/each}
 			</ol>
 			<p class="text-center text-xs text-app-muted/50 pt-2">
-				Showing the {entries.length} most recent event{entries.length === 1 ? '' : 's'}
-				{#if filter !== 'all'}({filter}){/if}.
-				Up to 50 events are stored per alias.
+				顯示最近 {entries.length} 筆事件
+				{#if filter !== 'all'}（{filter === 'forwarded' ? '已轉寄' : '已封鎖'}）{/if}。
+				每個別名最多保留 50 筆事件。
 			</p>
 		{/if}
 	</div>

@@ -13,12 +13,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const { email } = await request.json() as { email?: string };
 
 	if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-		return json({ error: 'A valid email address is required' }, { status: 400 });
+		return json({ error: '請輸入有效的電子郵件地址' }, { status: 400 });
 	}
 
 	const existing = await listDestinations(locals.kv);
 	if (existing.some((d) => d.email === email)) {
-		return json({ error: 'Address already exists' }, { status: 409 });
+		return json({ error: '此地址已存在' }, { status: 409 });
 	}
 
 	const dest: DestinationAddress = { email, createdAt: Date.now() };

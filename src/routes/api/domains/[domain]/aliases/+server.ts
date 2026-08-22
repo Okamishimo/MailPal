@@ -7,7 +7,7 @@ import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js'
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	const domain = await getDomain(locals.kv, params.domain);
-	if (!domain) return json({ error: 'Domain not found' }, { status: 404 });
+	if (!domain) return json({ error: '找不到網域' }, { status: 404 });
 
 	const aliases = await listAliases(locals.kv, params.domain);
 	aliases.sort((a, b) => a.createdAt - b.createdAt);
@@ -16,7 +16,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const domain = await getDomain(locals.kv, params.domain);
-	if (!domain) return json({ error: 'Domain not found' }, { status: 404 });
+	if (!domain) return json({ error: '找不到網域' }, { status: 404 });
 
 	const body = await request.json().catch(() => ({})) as Record<string, unknown>;
 	let { localPart, targetEmail = null, note, tags, expiresAt, maxForwards } = body as { localPart?: string; targetEmail?: string | null; note?: string; tags?: string[]; expiresAt?: number; maxForwards?: number };
@@ -51,13 +51,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	} else {
 		// Validate local part
 		if (!/^[a-zA-Z0-9._+-]+$/.test(localPart)) {
-			return json({ error: 'Invalid localPart' }, { status: 400 });
+			return json({ error: '別名名稱無效' }, { status: 400 });
 		}
 		if (localPart.length > 64) {
-			return json({ error: 'Local part must be 64 characters or fewer' }, { status: 400 });
+			return json({ error: '別名名稱不可超過 64 個字元' }, { status: 400 });
 		}
 		const existing = await getAlias(locals.kv, params.domain, localPart);
-		if (existing) return json({ error: 'Alias already exists' }, { status: 409 });
+		if (existing) return json({ error: '此別名已存在' }, { status: 409 });
 	}
 
 	const config: AliasConfig = {

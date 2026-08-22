@@ -9,23 +9,23 @@
 	const totalBlocked = $derived(aliases.reduce((s, a) => s + a.blockedCount, 0));
 
 	function fmt(n: number): string {
-		if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-		if (n >= 10_000) return `${Math.round(n / 1000)}k`;
-		if (n >= 1_000) return `${(n / 1000).toFixed(1)}k`;
-		return n.toString();
+		return new Intl.NumberFormat('zh-TW', {
+			notation: n >= 1_000 ? 'compact' : 'standard',
+			maximumFractionDigits: 1
+		}).format(n);
 	}
 
 	const stats = $derived([
-		{ label: 'Total', value: fmt(totalAliases), title: totalAliases.toString() },
-		{ label: 'Active', value: fmt(activeAliases), title: activeAliases.toString() },
-		{ label: 'Forwarded', value: fmt(totalForwarded), title: totalForwarded.toString() },
-		{ label: 'Blocked', value: fmt(totalBlocked), title: totalBlocked.toString() },
+		{ label: '總計', value: fmt(totalAliases), title: totalAliases.toLocaleString('zh-TW') },
+		{ label: '啟用中', value: fmt(activeAliases), title: activeAliases.toLocaleString('zh-TW') },
+		{ label: '已轉寄', value: fmt(totalForwarded), title: totalForwarded.toLocaleString('zh-TW') },
+		{ label: '已封鎖', value: fmt(totalBlocked), title: totalBlocked.toLocaleString('zh-TW') },
 	]);
 </script>
 
 <dl
 	class="grid grid-cols-4 divide-x divide-app-border rounded-xl border border-app-border bg-app-surface overflow-hidden"
-	aria-label="Overview statistics"
+	aria-label="總覽統計資料"
 >
 	{#each stats as stat (stat.label)}
 		<div class="px-4 py-3 flex items-center justify-start gap-2">

@@ -32,7 +32,7 @@
 				</div>
 				<Dialog.Close
 					class="p-1.5 text-app-muted hover:text-app-text hover:bg-app-hover rounded-lg transition-colors"
-					aria-label="Close dialog"
+			aria-label="關閉對話框"
 				>
 					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

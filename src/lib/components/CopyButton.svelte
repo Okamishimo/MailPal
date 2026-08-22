@@ -17,7 +17,7 @@
 	<Tooltip.Trigger
 		onclick={copy}
 		class="p-1 text-app-muted hover:text-app-text rounded transition-colors"
-		aria-label={copied ? 'Copied!' : 'Copy to clipboard'}
+		aria-label={copied ? '已複製！' : '複製到剪貼簿'}
 	>
 		{#if copied}
 			<svg class="w-3 h-3 text-app-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -34,7 +34,7 @@
 			class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md"
 			sideOffset={4}
 		>
-			{copied ? 'Copied!' : 'Copy to clipboard'}
+			{copied ? '已複製！' : '複製到剪貼簿'}
 		</Tooltip.Content>
 	</Tooltip.Portal>
 </Tooltip.Root>

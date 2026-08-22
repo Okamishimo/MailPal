@@ -120,21 +120,21 @@
 	const expiryBadge = $derived.by((): { label: string; urgency: 'normal' | 'warn' | 'critical' } | null => {
 		if (alias.expiresAt) {
 			const now = Date.now();
-			if (now >= alias.expiresAt) return { label: 'Expired', urgency: 'critical' };
+			if (now >= alias.expiresAt) return { label: '已到期', urgency: 'critical' };
 			// Compare calendar days in local time to avoid timezone-shifted "today" labels
 			const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 			const expStart = new Date(alias.expiresAt); expStart.setHours(0, 0, 0, 0);
 			const days = Math.round((expStart.getTime() - todayStart.getTime()) / 86_400_000);
-			if (days === 0) return { label: 'Expires today', urgency: 'critical' };
-			if (days === 1) return { label: 'Expires tomorrow', urgency: 'warn' };
-			if (days <= 7) return { label: `Expires in ${days}d`, urgency: 'warn' };
-			return { label: `Exp. ${new Date(alias.expiresAt).toLocaleDateString()}`, urgency: 'normal' };
+			if (days === 0) return { label: '今天到期', urgency: 'critical' };
+			if (days === 1) return { label: '明天到期', urgency: 'warn' };
+			if (days <= 7) return { label: `${days} 天後到期`, urgency: 'warn' };
+			return { label: `${new Date(alias.expiresAt).toLocaleDateString('zh-TW')} 到期`, urgency: 'normal' };
 		}
 		if (alias.maxForwards != null) {
 			const left = alias.maxForwards - alias.forwardedCount;
-			if (left <= 0) return { label: 'Limit reached', urgency: 'critical' };
-			if (left <= 5) return { label: `${left} fwd left`, urgency: 'warn' };
-			return { label: `${alias.forwardedCount}/${alias.maxForwards} fwd`, urgency: 'normal' };
+			if (left <= 0) return { label: '已達上限', urgency: 'critical' };
+			if (left <= 5) return { label: `剩餘 ${left} 次`, urgency: 'warn' };
+			return { label: `已轉寄 ${alias.forwardedCount}/${alias.maxForwards}`, urgency: 'normal' };
 		}
 		return null;
 	});
@@ -217,10 +217,10 @@
 				onAliasUpdated(await res.json());
 			} else {
 				const body = await res.json();
-				saveError = body.error ?? 'Failed to save';
+				saveError = body.error ?? '儲存失敗';
 			}
 		} catch {
-			saveError = 'Network error';
+			saveError = '網路連線錯誤';
 		} finally {
 			saving = false;
 		}
@@ -253,9 +253,9 @@
 			const res = await fetch(`/api/domains/${alias.domain}/aliases/${alias.localPart}/log`);
 			const data = await res.json();
 			if (res.ok) { activityLog = data; logLoaded = true; }
-			else logError = data.error ?? 'Failed to load';
+			else logError = data.error ?? '載入失敗';
 		} catch {
-			logError = 'Network error';
+			logError = '網路連線錯誤';
 		} finally {
 			logLoading = false;
 		}
@@ -283,25 +283,25 @@
 	function relativeTime(at: number): string {
 		const diff = Date.now() - at;
 		const mins = Math.floor(diff / 60_000);
-		if (mins < 1) return 'just now';
-		if (mins < 60) return `${mins}m ago`;
+		if (mins < 1) return '剛剛';
+		if (mins < 60) return `${mins} 分鐘前`;
 		const hrs = Math.floor(mins / 60);
-		if (hrs < 24) return `${hrs}h ago`;
+		if (hrs < 24) return `${hrs} 小時前`;
 		const days = Math.floor(hrs / 24);
-		if (days < 30) return `${days}d ago`;
-		return new Date(at).toLocaleDateString();
+		if (days < 30) return `${days} 天前`;
+		return new Date(at).toLocaleDateString('zh-TW');
 	}
 
 	function blockReasonLabel(reason: LogEntry['reason']): string {
-		if (!reason) return 'blocked';
+		if (!reason) return '已封鎖';
 		return ({
-			alias_disabled: 'alias disabled',
-			global_sender_blocked: 'global sender block',
-			alias_sender_blocked: 'alias sender block',
-			sender_not_in_allowlist: 'not in allowlist',
-			alias_expired: 'alias expired',
-			forwarding_limit_reached: 'forwarding limit reached',
-			invalid_sender: 'invalid envelope sender'
+			alias_disabled: '別名已停用',
+			global_sender_blocked: '全域寄件者封鎖',
+			alias_sender_blocked: '別名寄件者封鎖',
+			sender_not_in_allowlist: '不在允許清單中',
+			alias_expired: '別名已到期',
+			forwarding_limit_reached: '已達轉寄上限',
+			invalid_sender: 'SMTP 信封寄件者無效'
 		} as const)[reason];
 	}
 
@@ -324,10 +324,10 @@
 				newTagColor = '#6464D8';
 				showNewTagForm = false;
 			} else {
-				newTagError = body.error ?? 'Failed to create tag';
+				newTagError = body.error ?? '建立標籤失敗';
 			}
 		} catch {
-			newTagError = 'Network error';
+			newTagError = '網路連線錯誤';
 		} finally {
 			creatingTag = false;
 		}
@@ -357,7 +357,7 @@
 				<button
 					type="button"
 					onclick={(e) => { e.stopPropagation(); onSelect?.(!selected); }}
-					aria-label="Select {fullAddress}"
+					aria-label="選取 {fullAddress}"
 					aria-pressed={selected}
 					class="shrink-0 w-3.5 h-3.5 rounded border transition-all
 						{selected
@@ -413,16 +413,16 @@
 			<Tooltip.Root delayDuration={300}>
 				<Tooltip.Trigger
 					class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-lg bg-app-hover text-xs text-app-muted shrink-0 cursor-default"
-					aria-label="Auto-created alias"
+					aria-label="自動建立的別名"
 				>
-					Auto
+					自動
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Content
 						class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md"
 						sideOffset={4}
 					>
-						Automatically created on first use (wildcard mode)
+						首次收到信件時自動建立（萬用字元模式）
 						<Tooltip.Arrow class="text-app-border" />
 					</Tooltip.Content>
 				</Tooltip.Portal>
@@ -453,7 +453,7 @@
 				<Tooltip.Trigger
 					onclick={(e) => { e.stopPropagation(); expandToActivity(); }}
 					class="flex items-center gap-1 text-xs text-app-muted cursor-pointer hover:text-app-text transition-colors"
-					aria-label="{alias.blockedCount} emails blocked — click to view activity"
+					aria-label="已封鎖 {alias.blockedCount} 封信件，按一下檢視活動紀錄"
 				>
 					<svg class="w-3.5 h-3.5 text-red-400/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
 						<circle cx="12" cy="12" r="10" stroke-width="2" />
@@ -463,7 +463,7 @@
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Content class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md" sideOffset={4}>
-						{alias.blockedCount} blocked — click to view activity
+						已封鎖 {alias.blockedCount} 封，按一下檢視活動紀錄
 						<Tooltip.Arrow class="text-app-border" />
 					</Tooltip.Content>
 				</Tooltip.Portal>
@@ -473,7 +473,7 @@
 				<Tooltip.Trigger
 					onclick={(e) => { e.stopPropagation(); expandToActivity(); }}
 					class="flex items-center gap-1 text-xs text-app-muted cursor-pointer hover:text-app-text transition-colors"
-					aria-label="{alias.forwardedCount} emails forwarded — click to view activity"
+					aria-label="已轉寄 {alias.forwardedCount} 封信件，按一下檢視活動紀錄"
 				>
 					<svg class="w-3.5 h-3.5 text-green-400/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -482,7 +482,7 @@
 				</Tooltip.Trigger>
 				<Tooltip.Portal>
 					<Tooltip.Content class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md" sideOffset={4}>
-						{alias.forwardedCount} forwarded — click to view activity
+						已轉寄 {alias.forwardedCount} 封，按一下檢視活動紀錄
 						<Tooltip.Arrow class="text-app-border" />
 					</Tooltip.Content>
 				</Tooltip.Portal>
@@ -495,7 +495,7 @@
 				onclick={handleToggle}
 				disabled={toggling}
 				aria-pressed={alias.enabled}
-				aria-label={alias.enabled ? 'Disable alias' : 'Enable alias'}
+				aria-label={alias.enabled ? '停用別名' : '啟用別名'}
 				class="flex items-center justify-end gap-2 min-w-[5.5rem] group/toggle disabled:opacity-60"
 			>
 				<div
@@ -503,12 +503,12 @@
 						{alias.enabled ? 'bg-app-accent' : 'bg-red-400/60'}"
 				></div>
 				<span class="hidden sm:block text-[11px] font-bold tracking-widest shrink-0 {alias.enabled ? 'text-app-accent' : 'text-red-400/80'}">
-					{alias.enabled ? 'ACTIVE' : 'DISABLED'}
+					{alias.enabled ? '啟用中' : '已停用'}
 				</span>
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Content class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md" sideOffset={4}>
-					{alias.enabled ? 'Disable alias' : 'Enable alias'}
+					{alias.enabled ? '停用別名' : '啟用別名'}
 					<Tooltip.Arrow class="text-app-border" />
 				</Tooltip.Content>
 			</Tooltip.Portal>
@@ -519,7 +519,7 @@
 			<Tooltip.Trigger
 				onclick={toggleExpand}
 				aria-expanded={expanded}
-				aria-label={expanded ? 'Collapse' : 'Edit alias'}
+				aria-label={expanded ? '收合' : '編輯別名'}
 				class="p-1.5 rounded transition-colors shrink-0
 					{expanded
 						? 'text-app-accent bg-app-accent/10'
@@ -534,7 +534,7 @@
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Content class="z-50 px-2 py-1 rounded-md bg-app-surface border border-app-border text-xs text-app-text shadow-md" sideOffset={4}>
-					{expanded ? 'Collapse' : 'Edit alias'}
+					{expanded ? '收合' : '編輯別名'}
 					<Tooltip.Arrow class="text-app-border" />
 				</Tooltip.Content>
 			</Tooltip.Portal>
@@ -558,7 +558,7 @@
 								? 'border-app-accent text-app-accent'
 								: 'border-transparent text-app-muted hover:text-app-text'}"
 					>
-						{tab === 'settings' ? 'Settings' : 'Activity'}
+						{tab === 'settings' ? '設定' : '活動紀錄'}
 					</button>
 				{/each}
 			</div>
@@ -569,33 +569,33 @@
 
 					<!-- Destination override -->
 					<div class="space-y-1.5">
-						<p class="text-xs font-medium text-app-muted">Forward to</p>
+						<p class="text-xs font-medium text-app-muted">轉寄至</p>
 						<DestinationSelect
 							{destinations}
 							bind:value={editTargetEmail}
 							allowEmpty={true}
-							emptyLabel="Inherit from domain ({domainTargetEmail})"
-							placeholder="Inherit from domain…"
+							emptyLabel="沿用網域設定（{domainTargetEmail}）"
+							placeholder="沿用網域設定…"
 						/>
 					</div>
 
 					<!-- Note -->
 					<div class="space-y-1.5">
 						<label for="row-note-{alias.domain}-{alias.localPart}" class="block text-xs font-medium text-app-muted">
-							Note
+							備註
 						</label>
 						<input
 							id="row-note-{alias.domain}-{alias.localPart}"
 							type="text"
 							bind:value={editNote}
-							placeholder="What's this alias for? e.g. GitHub sign-up"
+							placeholder="這個別名的用途，例如：註冊 GitHub"
 							class="w-full px-3 py-2 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
 						/>
 					</div>
 
 					<!-- Tags -->
 					<div class="space-y-1.5">
-						<p class="text-xs font-medium text-app-muted">Tags</p>
+						<p class="text-xs font-medium text-app-muted">標籤</p>
 						<div class="flex flex-wrap gap-1.5">
 							{#each tags as tag (tag.name)}
 								{@const active = editTags.includes(tag.name)}
@@ -632,7 +632,7 @@
 									<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
 									</svg>
-									New tag
+									新增標籤
 								</button>
 							{/if}
 						</div>
@@ -645,12 +645,12 @@
 								class="flex items-center gap-2 p-2.5 rounded-lg border border-app-border bg-app-bg/40"
 							>
 								<ColorPicker bind:value={newTagColor} />
-								<label for="new-tag-{alias.domain}-{alias.localPart}" class="sr-only">Tag name</label>
+								<label for="new-tag-{alias.domain}-{alias.localPart}" class="sr-only">標籤名稱</label>
 								<input
 									id="new-tag-{alias.domain}-{alias.localPart}"
 									type="text"
 									bind:value={newTagName}
-									placeholder="Tag name"
+									placeholder="標籤名稱"
 									required
 									class="flex-1 min-w-0 px-2.5 py-1.5 rounded-md border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted focus:outline-none focus:border-app-accent/60 transition-colors"
 								/>
@@ -663,14 +663,14 @@
 										onclick={() => { showNewTagForm = false; newTagName = ''; newTagError = ''; }}
 										class="px-2.5 py-1.5 text-xs text-app-muted hover:text-app-text border border-app-border rounded-md transition-colors"
 									>
-										Cancel
+										取消
 									</button>
 									<button
 										type="submit"
 										disabled={creatingTag || !newTagName.trim()}
 										class="px-2.5 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-md hover:brightness-110 transition-all disabled:opacity-40"
 									>
-										{creatingTag ? '…' : 'Add'}
+										{creatingTag ? '…' : '新增'}
 									</button>
 								</div>
 							</form>
@@ -681,9 +681,9 @@
 				<!-- Sender filtering -->
 				<div class="space-y-3 pt-1 border-t border-app-border/50">
 					<div>
-						<p class="text-xs font-medium text-app-muted">Sender filtering</p>
+						<p class="text-xs font-medium text-app-muted">寄件者篩選</p>
 						<p class="text-[11px] text-app-muted/60 mt-0.5">
-							Rules use the SMTP envelope sender. Block rules always take precedence.
+							規則會比對 SMTP 信封寄件者，且封鎖規則永遠優先套用。
 						</p>
 					</div>
 					<div class="flex gap-1.5 flex-wrap">
@@ -696,18 +696,18 @@
 										? 'bg-app-accent text-app-bg font-medium'
 										: 'bg-app-hover text-app-muted hover:text-app-text border border-app-border'}"
 							>
-								{mode === 'normal' ? 'Normal' : 'Allowlist only'}
+								{mode === 'normal' ? '一般模式' : '僅允許清單'}
 							</button>
 						{/each}
 						<span class="self-center text-[11px] text-app-muted/60">
 							{editSenderMode === 'normal'
-								? 'Accept all senders except blocked rules.'
-								: 'Accept only senders matching an allowed rule.'}
+								? '接受所有未被封鎖規則比對到的寄件者。'
+								: '只接受符合允許規則的寄件者。'}
 						</span>
 					</div>
 					<div class="grid gap-3 md:grid-cols-2">
 						<label class="space-y-1.5">
-							<span class="block text-xs font-medium text-app-muted">Allowed addresses</span>
+							<span class="block text-xs font-medium text-app-muted">允許的地址</span>
 							<textarea
 								bind:value={editAllowedSenderAddresses}
 								rows="3"
@@ -717,7 +717,7 @@
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
-							<span class="block text-xs font-medium text-app-muted">Allowed domains</span>
+							<span class="block text-xs font-medium text-app-muted">允許的網域</span>
 							<textarea
 								bind:value={editAllowedSenderDomains}
 								rows="3"
@@ -727,7 +727,7 @@
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
-							<span class="block text-xs font-medium text-app-muted">Blocked addresses</span>
+							<span class="block text-xs font-medium text-app-muted">封鎖的地址</span>
 							<textarea
 								bind:value={editBlockedSenderAddresses}
 								rows="3"
@@ -737,7 +737,7 @@
 							></textarea>
 						</label>
 						<label class="space-y-1.5">
-							<span class="block text-xs font-medium text-app-muted">Blocked domains</span>
+							<span class="block text-xs font-medium text-app-muted">封鎖的網域</span>
 							<textarea
 								bind:value={editBlockedSenderDomains}
 								rows="3"
@@ -748,17 +748,17 @@
 						</label>
 					</div>
 					<p class="text-[11px] text-app-muted/50">
-						One exact address or domain per line. A domain also matches its subdomains.
-						Use the alias toggle above to block all mail.
+						每行填寫一個完整地址或網域；網域規則也會比對其子網域。
+						若要封鎖所有信件，請使用上方的別名開關。
 					</p>
 				</div>
 
 				<!-- Auto-disable -->
 				<div class="space-y-1.5">
-					<p class="text-xs font-medium text-app-muted">Auto-disable</p>
+					<p class="text-xs font-medium text-app-muted">自動停用</p>
 					<div class="flex gap-1.5 flex-wrap">
 						{#each (['none', 'date', 'count'] as const) as mode (mode)}
-							{@const label = mode === 'none' ? 'Never' : mode === 'date' ? 'After date' : 'After N emails'}
+							{@const label = mode === 'none' ? '永不' : mode === 'date' ? '指定日期後' : '指定信件數後'}
 							<button
 								type="button"
 								onclick={() => { expiryMode = mode; }}
@@ -791,10 +791,10 @@
 								value={editMaxForwards ?? ''}
 								oninput={(e) => { const v = parseInt(e.currentTarget.value, 10); editMaxForwards = isNaN(v) || v < 1 ? null : v; }}
 								min="1"
-								placeholder="e.g. 10"
+								placeholder="例如 10"
 								class="w-24 px-3 py-1.5 rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted/60 focus:outline-none focus:border-app-accent/60 transition-colors"
 							/>
-							<span class="text-xs text-app-muted">emails, then disable</span>
+							<span class="text-xs text-app-muted">封信後停用</span>
 							{#if expiryBadge}
 								<span class="text-xs {expiryBadge.urgency === 'critical' ? 'text-red-400' : expiryBadge.urgency === 'warn' ? 'text-amber-400' : 'text-app-muted'}">{expiryBadge.label}</span>
 							{/if}
@@ -805,17 +805,17 @@
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-2 pt-1 border-t border-app-border/50">
 					<div class="bg-app-hover/60 rounded-lg p-2.5 pt-3">
-						<div class="text-[11px] text-app-muted mb-1">Forwarded</div>
+						<div class="text-[11px] text-app-muted mb-1">已轉寄</div>
 						<div class="text-base font-bold text-app-text">{alias.forwardedCount}</div>
 					</div>
 					<div class="bg-app-hover/60 rounded-lg p-2.5 pt-3">
-						<div class="text-[11px] text-app-muted mb-1">Blocked</div>
+						<div class="text-[11px] text-app-muted mb-1">已封鎖</div>
 						<div class="text-base font-bold text-app-text">{alias.blockedCount}</div>
 					</div>
 					<div class="bg-app-hover/60 rounded-lg p-2.5 pt-3">
-						<div class="text-[11px] text-app-muted mb-1">Last used</div>
+						<div class="text-[11px] text-app-muted mb-1">最近使用</div>
 						<div class="text-xs font-medium text-app-text leading-tight mt-0.5">
-							{alias.lastUsedAt ? new Date(alias.lastUsedAt).toLocaleDateString() : '—'}
+							{alias.lastUsedAt ? new Date(alias.lastUsedAt).toLocaleDateString('zh-TW') : '—'}
 						</div>
 					</div>
 				</div>
@@ -829,24 +829,24 @@
 							disabled={deleting}
 							class="px-3 py-1.5 text-xs text-red-400/80 hover:text-red-400 border border-red-400/20 hover:border-red-400/50 rounded-lg transition-colors disabled:opacity-40"
 						>
-							{deleting ? 'Deleting…' : 'Delete Address'}
+							{deleting ? '刪除中…' : '刪除地址'}
 						</AlertDialog.Trigger>
 						<AlertDialog.Portal>
 							<AlertDialog.Overlay class="fixed inset-0 bg-black/65 backdrop-blur-sm z-40" />
 							<AlertDialog.Content class="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl border border-app-border bg-app-surface shadow-2xl w-full max-w-sm text-app-text p-6 focus:outline-none">
-								<AlertDialog.Title class="font-semibold text-app-text mb-1">Delete Address?</AlertDialog.Title>
+								<AlertDialog.Title class="font-semibold text-app-text mb-1">要刪除地址嗎？</AlertDialog.Title>
 								<AlertDialog.Description class="text-sm text-app-muted mb-5">
-									<span class="font-mono text-app-text">{fullAddress}</span> will be permanently deleted.
+									<span class="font-mono text-app-text">{fullAddress}</span> 將會永久刪除。
 								</AlertDialog.Description>
 								<div class="flex justify-end gap-2">
 									<AlertDialog.Cancel class="px-4 py-2 text-sm text-app-muted hover:text-app-text border border-app-border hover:border-app-hover rounded-lg transition-colors">
-										Cancel
+										取消
 									</AlertDialog.Cancel>
 									<AlertDialog.Action
 										onclick={handleDelete}
 										class="px-4 py-2 text-sm font-semibold bg-red-500 hover:bg-red-400 text-white rounded-lg transition-colors"
 									>
-										Delete
+										刪除
 									</AlertDialog.Action>
 								</div>
 							</AlertDialog.Content>
@@ -870,7 +870,7 @@
 								}}
 								class="px-3 py-1.5 text-xs text-app-muted hover:text-app-text border border-app-border hover:border-app-hover rounded-lg transition-colors"
 							>
-								Discard
+								捨棄變更
 							</button>
 							<button
 								type="button"
@@ -879,7 +879,7 @@
 								aria-busy={saving}
 								class="px-3 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
 							>
-								{saving ? 'Saving…' : 'Save changes'}
+								{saving ? '儲存中…' : '儲存變更'}
 							</button>
 						{/if}
 					</div>
@@ -894,30 +894,30 @@
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
 						</svg>
-						<span class="text-xs">Loading…</span>
+						<span class="text-xs">載入中…</span>
 					</div>
 				{:else if logError}
 					<p class="text-xs text-red-400 text-center py-6">{logError}</p>
 				{:else if activityLog.length === 0}
 					<div class="text-center py-10">
-						<p class="text-xs text-app-muted">No activity recorded yet.</p>
-						<p class="text-xs text-app-muted/50 mt-1">Events appear after emails are received.</p>
+						<p class="text-xs text-app-muted">目前尚無活動紀錄。</p>
+						<p class="text-xs text-app-muted/50 mt-1">收到電子郵件後，相關事件會顯示在這裡。</p>
 					</div>
 				{:else}
-					<ol class="space-y-1" aria-label="Recent activity">
+					<ol class="space-y-1" aria-label="近期活動紀錄">
 						{#each activityLog as entry, i (i)}
 							<li class="flex items-start gap-1.5 py-2 {i !== activityLog.length - 1 ? 'border-b border-app-border/40' : ''}">
 								<span
 									class="mt-[0.3rem] w-1.5 h-1.5 rounded-full shrink-0 {entry.action === 'forwarded' ? 'bg-green-400' : 'bg-red-400'}"
-									aria-label={entry.action}
+									aria-label={entry.action === 'forwarded' ? '已轉寄' : '已封鎖'}
 								></span>
 								<div class="flex-1 min-w-0">
 								<div class="flex items-center gap-2">
 									<span class="text-xs font-medium {entry.action === 'forwarded' ? 'text-green-400' : 'text-red-400'}">
-										{entry.action === 'blocked' ? blockReasonLabel(entry.reason) : entry.action}
+										{entry.action === 'blocked' ? blockReasonLabel(entry.reason) : '已轉寄'}
 									</span>
 									<span class="text-xs text-app-muted truncate" title={entry.from || undefined}>
-										from {entry.from || '(invalid sender)'}
+										寄件者：{entry.from || '（無效的寄件者）'}
 									</span>
 								</div>
 								{#if entry.subject}
@@ -926,13 +926,13 @@
 								<p class="text-xs text-app-muted/60 truncate" title={entry.to}>→ {entry.to}</p>
 								{#if entry.action === 'blocked' && entry.matchedRule}
 									<p class="text-[11px] text-app-muted/50 truncate" title={entry.matchedRule}>
-										Matched {entry.matchedRule}
+										符合 {entry.matchedRule}
 									</p>
 								{/if}
 								</div>
 								<time
 									datetime={new Date(entry.at).toISOString()}
-									title={new Date(entry.at).toLocaleString()}
+									title={new Date(entry.at).toLocaleString('zh-TW')}
 									class="text-[11px] text-app-muted/50 shrink-0 tabular-nums"
 								>
 									{relativeTime(entry.at)}

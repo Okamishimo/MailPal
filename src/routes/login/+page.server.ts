@@ -11,14 +11,14 @@ export const actions: Actions = {
 	default: async ({ request, platform, cookies }) => {
 		const authPassword = platform?.env?.AUTH_PASSWORD;
 		if (!authPassword) {
-			return fail(400, { error: 'Password auth is not configured' });
+			return fail(400, { error: '尚未設定密碼驗證' });
 		}
 
 		const data = await request.formData();
 		const password = data.get('password') as string;
 
 		if (!password || password !== authPassword) {
-			return fail(401, { error: 'Invalid password' });
+			return fail(401, { error: '密碼錯誤' });
 		}
 
 		const sealed = await createSession(authPassword);

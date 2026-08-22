@@ -83,7 +83,7 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				globalBlocklistError = body.error ?? 'Failed to save global blocklist';
+				globalBlocklistError = body.error ?? '儲存全域封鎖清單失敗';
 				return;
 			}
 			const updated = body as GlobalSenderBlocklist;
@@ -92,7 +92,7 @@
 			globalBlockedDomains = rulesToText(updated.blockedSenderDomains);
 			globalBlocklistSaved = true;
 		} catch {
-			globalBlocklistError = 'Network error';
+			globalBlocklistError = '網路連線錯誤';
 		} finally {
 			savingGlobalBlocklist = false;
 		}
@@ -110,14 +110,14 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				addError = body.error ?? 'Failed to add address';
+				addError = body.error ?? '新增地址失敗';
 			} else {
 				onAdded(body as DestinationAddress);
 				justAdded = newEmail.trim();
 				newEmail = '';
 			}
 		} catch {
-			addError = 'Network error';
+			addError = '網路連線錯誤';
 		} finally {
 			adding = false;
 			showDestinationForm = false;
@@ -125,7 +125,7 @@
 	}
 
 	async function handleDelete(email: string) {
-		const confirmDelete = confirm(`Are you sure you want to delete the destination address "${email}"? This will stop all mail from being forwarded to this address.`);
+		const confirmDelete = confirm(`確定要刪除轉寄地址「${email}」嗎？之後所有信件都不會再轉寄到此地址。`);
 		if (!confirmDelete) return;
 
 		deletingEmail = email;
@@ -151,7 +151,7 @@
 			});
 			const body = await res.json();
 			if (!res.ok) {
-				addTagError = body.error ?? 'Failed to create tag';
+				addTagError = body.error ?? '建立標籤失敗';
 			} else {
 				onTagCreated(body as Tag);
 				newTagName = '';
@@ -159,14 +159,14 @@
 				showTagForm = false;
 			}
 		} catch {
-			addTagError = 'Network error';
+			addTagError = '網路連線錯誤';
 		} finally {
 			addingTag = false;
 		}
 	}
 
 	async function handleDeleteTag(name: string) {
-		const confirmDelete = confirm(`Are you sure you want to delete the tag "${name}"? This will remove it from all addresses.`);
+		const confirmDelete = confirm(`確定要刪除標籤「${name}」嗎？所有地址上的這個標籤都會一併移除。`);
 		if (!confirmDelete) return;
 
 		deletingTag = name;
@@ -209,21 +209,21 @@
 	}
 </script>
 
-<Dialog open={open} title="Settings" onClose={handleClose}>
+<Dialog open={open} title="設定" onClose={handleClose}>
 	<div class="p-6 space-y-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
 
 		<!-- Section header -->
 		<div>
-			<h3 class="text-sm font-semibold text-app-text mb-0.5">Destination Addresses</h3>
+			<h3 class="text-sm font-semibold text-app-text mb-0.5">轉寄地址</h3>
 			<p class="text-xs text-app-muted leading-relaxed">
-				Email addresses that Cloudflare Email Routing can forward mail to.
-				Each address must be verified in Cloudflare before it can receive mail.
+				Cloudflare 電子郵件路由可將信件轉寄到這些地址。
+				每個地址都必須先在 Cloudflare 完成驗證才能收信。
 			</p>
 		</div>
 
 		<!-- Address list -->
 		{#if destinations.length > 0}
-			<ul class="space-y-2" aria-label="Destination addresses">
+			<ul class="space-y-2" aria-label="轉寄地址">
 				{#each destinations as dest (dest.email)}
 					<li class="flex flex-col gap-2">
 						<div class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-app-hover border border-app-border">
@@ -233,7 +233,7 @@
 							<button
 								onclick={() => handleDelete(dest.email)}
 								disabled={deletingEmail === dest.email}
-								aria-label="Remove {dest.email}"
+								aria-label="移除 {dest.email}"
 								class="p-1 text-app-muted/60 hover:text-red-400 rounded transition-colors disabled:opacity-40 shrink-0"
 							>
 								<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -245,12 +245,12 @@
 						<!-- Cloudflare setup guide for newly added address -->
 						{#if justAdded === dest.email}
 							<div class="ml-3 pl-3 border-l-2 border-app-accent/30 space-y-2.5">
-								<p class="text-xs font-medium text-app-accent">Verify this address in Cloudflare</p>
+								<p class="text-xs font-medium text-app-accent">在 Cloudflare 驗證此地址</p>
 								<ol class="space-y-2">
 									{#each [
-										'In the Cloudflare dashboard, go to Email → Email Routing → Destination Addresses.',
-										'Click Add destination address, enter ' + dest.email + ', and click Send verification email.',
-										'Check your inbox for an email from Cloudflare and click the verification link.'
+										'在 Cloudflare 控制台前往「電子郵件 → 電子郵件路由 → 轉寄地址」。',
+										'按下「新增轉寄地址」，輸入 ' + dest.email + '，再按下「傳送驗證電子郵件」。',
+										'開啟 Cloudflare 寄到收件匣的信件，並按下驗證連結。'
 									] as instruction, i}
 										<li class="flex gap-2.5 text-xs text-app-muted leading-relaxed">
 											<span class="flex-none w-4 h-4 rounded-full border border-app-border text-[10px] font-bold flex items-center justify-center mt-px text-app-muted/70" aria-hidden="true">
@@ -267,7 +267,7 @@
 			</ul>
 		{:else}
 			<p class="text-sm text-app-muted text-center py-4 rounded-lg border border-dashed border-app-border">
-				No destination addresses yet
+				尚未新增轉寄地址
 			</p>
 		{/if}
 
@@ -275,7 +275,7 @@
 			<!-- Add address form -->
 			<form onsubmit={handleAdd} class="space-y-2">
 				<label for="dest-email" class="block text-xs font-medium text-app-muted">
-					Add destination address
+					新增轉寄地址
 				</label>
 				<div class="flex gap-2">
 					<input
@@ -292,7 +292,7 @@
 						aria-busy={adding}
 						class="px-4 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
 					>
-						{adding ? 'Adding…' : 'Add'}
+						{adding ? '新增中…' : '新增'}
 					</button>
 					<button
 						type="button"
@@ -315,7 +315,7 @@
 				onclick={handleShowDestinationForm}
 				class="text-xs text-app-accent hover:underline underline-offset-2 ml-2"
 			>
-				+ Add destination address
+				+ 新增轉寄地址
 			</button>
 		{/if}
 
@@ -324,15 +324,15 @@
 		<!-- Global sender blocklist -->
 		<div class="space-y-3">
 			<div>
-				<h3 class="text-sm font-semibold text-app-text mb-0.5">Global Sender Blocklist</h3>
+				<h3 class="text-sm font-semibold text-app-text mb-0.5">全域寄件者封鎖清單</h3>
 				<p class="text-xs text-app-muted leading-relaxed">
-					These envelope senders are blocked for every alias. One exact address or domain per line.
-					Domain rules also match subdomains.
+					這些 SMTP 信封寄件者會套用至所有別名。每行填寫一個完整地址或網域；
+					網域規則也會比對其子網域。
 				</p>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
 				<label class="space-y-1.5">
-					<span class="block text-xs font-medium text-app-muted">Blocked addresses</span>
+					<span class="block text-xs font-medium text-app-muted">封鎖的地址</span>
 					<textarea
 						bind:value={globalBlockedAddresses}
 						rows="4"
@@ -342,7 +342,7 @@
 					></textarea>
 				</label>
 				<label class="space-y-1.5">
-					<span class="block text-xs font-medium text-app-muted">Blocked domains</span>
+					<span class="block text-xs font-medium text-app-muted">封鎖的網域</span>
 					<textarea
 						bind:value={globalBlockedDomains}
 						rows="4"
@@ -356,7 +356,7 @@
 				{#if globalBlocklistError}
 					<span role="alert" class="text-xs text-red-400">{globalBlocklistError}</span>
 				{:else if globalBlocklistSaved}
-					<span class="text-xs text-green-400">Saved</span>
+					<span class="text-xs text-green-400">已儲存</span>
 				{/if}
 				<button
 					type="button"
@@ -364,7 +364,7 @@
 					disabled={savingGlobalBlocklist}
 					class="px-3 py-1.5 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
 				>
-					{savingGlobalBlocklist ? 'Saving…' : 'Save blocklist'}
+					{savingGlobalBlocklist ? '儲存中…' : '儲存封鎖清單'}
 				</button>
 			</div>
 		</div>
@@ -373,14 +373,14 @@
 
 		<!-- Tags section -->
 		<div>
-			<h3 class="text-sm font-semibold text-app-text mb-0.5">Tags</h3>
+			<h3 class="text-sm font-semibold text-app-text mb-0.5">標籤</h3>
 			<p class="text-xs text-app-muted leading-relaxed">
-				Organize addresses with colored tags for filtering and grouping.
+				使用彩色標籤整理地址，方便篩選與分組。
 			</p>
 		</div>
 
 		{#if tags.length > 0}
-			<ul class="space-y-2" aria-label="Tags">
+			<ul class="space-y-2" aria-label="標籤">
 				{#each tags as tag (tag.name)}
 					<li class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-app-hover border border-app-border">
 						<ColorPicker bind:value={tag.color} size={3} onChange={(value) => { if (value) handleUpdateTag({ ...tag, color: value }); }} />
@@ -388,7 +388,7 @@
 						<button
 							onclick={() => handleDeleteTag(tag.name)}
 							disabled={deletingTag === tag.name}
-							aria-label="Delete tag {tag.name}"
+							aria-label="刪除標籤 {tag.name}"
 							class="p-1 text-app-muted/60 hover:text-red-400 rounded transition-colors disabled:opacity-40 shrink-0"
 						>
 							<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -400,7 +400,7 @@
 			</ul>
 		{:else}
 			<p class="text-sm text-app-muted text-center py-4 rounded-lg border border-dashed border-app-border">
-				No tags yet
+				尚未新增標籤
 			</p>
 		{/if}
 
@@ -411,7 +411,7 @@
 					<input
 						type="text"
 						bind:value={newTagName}
-						placeholder="Tag name"
+						placeholder="標籤名稱"
 						required
 						class="flex-1 px-3 py-1.5 w-full rounded-lg border border-app-border bg-app-hover text-sm text-app-text placeholder:text-app-muted focus:outline-none focus:border-app-accent/60 transition-colors"
 					/>
@@ -421,7 +421,7 @@
 						aria-busy={addingTag}
 						class="px-3 py-2 text-xs font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
 					>
-						{addingTag ? 'Saving…' : 'Save'}
+						{addingTag ? '儲存中…' : '儲存'}
 					</button>
 					<button
 						type="button"
@@ -444,7 +444,7 @@
 				onclick={handleShowAddTag}
 				class="text-xs text-app-accent hover:underline underline-offset-2 ml-2"
 			>
-				+ Add tag
+				+ 新增標籤
 			</button>
 		{/if}
 	</div>

@@ -7,14 +7,14 @@ const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const existing = await locals.kv.get(`tag:${params.name}`);
-	if (!existing) return json({ error: 'Tag not found' }, { status: 404 });
+	if (!existing) return json({ error: '找不到標籤' }, { status: 404 });
 
 	const tag = JSON.parse(existing) as Tag;
 	const body = await request.json().catch(() => ({}));
 	const { color } = body as { color?: string };
 
 	if (color !== undefined && !HEX_COLOR_RE.test(color)) {
-		return json({ error: 'Invalid color value' }, { status: 400 });
+		return json({ error: '顏色值無效' }, { status: 400 });
 	}
 
 	const updated: Tag = { ...tag, ...(color !== undefined && { color }) };
@@ -24,7 +24,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const existing = await locals.kv.get(`tag:${params.name}`);
-	if (!existing) return json({ error: 'Tag not found' }, { status: 404 });
+	if (!existing) return json({ error: '找不到標籤' }, { status: 404 });
 
 	await deleteTag(locals.kv, params.name);
 

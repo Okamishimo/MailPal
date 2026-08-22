@@ -5,9 +5,9 @@
 	let {
 		destinations,
 		value = $bindable(),
-		placeholder = 'Select address…',
+		placeholder = '選擇地址…',
 		allowEmpty = false,
-		emptyLabel = 'Inherit from domain',
+		emptyLabel = '沿用網域設定',
 		id
 	}: {
 		destinations: DestinationAddress[];
@@ -46,7 +46,7 @@
 	>
 		<span class="truncate">
 			{#if destinations.length === 0 && !allowEmpty}
-				No destination addresses configured
+				尚未設定轉寄地址
 			{:else}
 				{value ? selectedLabel : placeholder}
 			{/if}
@@ -83,7 +83,6 @@
 
 {#if destinations.length === 0 && !allowEmpty}
 	<p class="text-xs text-app-muted mt-1.5">
-		Add destination addresses in
-		<span class="text-app-accent">Settings</span> first.
+		請先在「<span class="text-app-accent">設定</span>」中新增轉寄地址。
 	</p>
 {/if}

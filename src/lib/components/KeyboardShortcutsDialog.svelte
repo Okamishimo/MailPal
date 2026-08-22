@@ -2,17 +2,17 @@
 	let { show, onClose }: { show: boolean; onClose: () => void } = $props();
 
 	const SHORTCUTS: [string, string][] = [
-		['/', 'Focus search'],
-		['c', 'Focus quick-create'],
-		['j / k', 'Navigate alias list'],
-		['s', 'Toggle expand focused alias'],
-		['e', 'Enable focused alias'],
-		['d', 'Disable focused alias'],
-		['t', 'Toggle enable / disable'],
-		['Backspace', 'Delete focused alias'],
-		['x', 'Toggle select focused'],
-		['Escape', 'Clear / close'],
-		['?', 'Show this help'],
+		['/', '移至搜尋欄'],
+		['c', '移至快速建立'],
+		['j / k', '瀏覽別名清單'],
+		['s', '展開或收合目前別名'],
+		['e', '啟用目前別名'],
+		['d', '停用目前別名'],
+		['t', '切換啟用或停用'],
+		['Backspace', '刪除目前別名'],
+		['x', '選取或取消目前別名'],
+		['Escape', '清除或關閉'],
+		['?', '顯示這份說明'],
 	];
 </script>
 
@@ -27,15 +27,15 @@
 			onclick={(e) => e.stopPropagation()}
 			role="dialog"
 			aria-modal="true"
-			aria-label="Keyboard shortcuts"
+			aria-label="鍵盤快速鍵"
 			tabindex="-1"
 		>
 			<div class="flex items-center justify-between mb-4">
-				<h2 class="font-semibold text-base">Keyboard shortcuts</h2>
+				<h2 class="font-semibold text-base">鍵盤快速鍵</h2>
 				<button
 					onclick={onClose}
 					class="p-1 rounded text-app-muted hover:text-app-text hover:bg-app-hover transition-colors"
-					aria-label="Close"
+					aria-label="關閉"
 				>
 					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
