@@ -1,6 +1,6 @@
 import { redirect, type Handle } from '@sveltejs/kit';
 import { dev } from '$app/environment';
-import { createSession, verifySession, COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '$lib/auth.js';
+import { createSession, verifySession, verifyApiToken, COOKIE_NAME, SESSION_COOKIE_OPTIONS } from '$lib/auth.js';
 import { verifyAccessJwt } from '$lib/access-jwt.js';
 import { DemoKV, type DemoDelta } from '$lib/demo-kv.js';
 
@@ -84,7 +84,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const authPassword = platform.env.AUTH_PASSWORD;
 	event.locals.authMode = authPassword ? 'password' : 'cloudflare-access';
 
-	if (event.locals.authMode === 'cloudflare-access') {
+	const pathname = event.url.pathname;
+	const isLoginRoute = pathname === '/login';
+	const isApiRoute = pathname.startsWith('/api/');
+
+	// API token auth for automation (e.g. Apple Shortcuts). Deliberately scoped to
+	// /api/ routes only, so a leaked token can never reach the HTML dashboard. When
+	// it matches we skip the session/Access checks entirely — including the
+	// sliding-cookie refresh, which is meaningless for a cookie-less client.
+	if (
+		isApiRoute &&
+		(await verifyApiToken(event.request.headers.get('Authorization'), platform.env.API_TOKEN))
+	) {
+		event.locals.authenticated = true;
+	} else if (event.locals.authMode === 'cloudflare-access') {
 		const teamDomain = platform.env.CF_ACCESS_TEAM_DOMAIN;
 		const aud = platform.env.CF_ACCESS_AUD;
 		if (teamDomain && aud) {
@@ -116,10 +129,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			event.cookies.set(COOKIE_NAME, refreshed, SESSION_COOKIE_OPTIONS);
 		}
 	}
-
-	const pathname = event.url.pathname;
-	const isLoginRoute = pathname === '/login';
-	const isApiRoute = pathname.startsWith('/api/');
 
 	if (!event.locals.authenticated && !isLoginRoute) {
 		if (isApiRoute) {

@@ -9,6 +9,8 @@ declare global {
 				DEMO_MODE?: string;
 				/** Optional dedicated secret for sealing session cookies; falls back to AUTH_PASSWORD. */
 				SESSION_SECRET?: string;
+				/** Bearer token for automation (e.g. Apple Shortcuts). Grants access to /api/ routes only. */
+				API_TOKEN?: string;
 				/** e.g. "myteam.cloudflareaccess.com" — enables Access JWT verification when set with CF_ACCESS_AUD. */
 				CF_ACCESS_TEAM_DOMAIN?: string;
 				/** The Access application AUD tag — enables Access JWT verification when set with CF_ACCESS_TEAM_DOMAIN. */

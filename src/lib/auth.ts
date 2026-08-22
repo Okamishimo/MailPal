@@ -68,6 +68,26 @@ export async function verifySession(sealed: string | undefined, secret: string):
 }
 
 /**
+ * Verifies an `Authorization: Bearer <token>` header against the configured API
+ * token, for automation clients (e.g. Apple Shortcuts) that cannot handle the
+ * session-cookie login flow.
+ *
+ * Returns false when no token is configured, or the header is missing, not a
+ * Bearer scheme, empty, or incorrect. The comparison is constant-time to avoid
+ * leaking the token through timing.
+ */
+export async function verifyApiToken(
+	authHeader: string | null,
+	apiToken: string | undefined
+): Promise<boolean> {
+	if (!apiToken) return false;
+	if (!authHeader?.startsWith('Bearer ')) return false;
+	const provided = authHeader.slice('Bearer '.length);
+	if (!provided) return false;
+	return constantTimeEqual(provided, apiToken);
+}
+
+/**
  * Constant-time string equality. Both inputs are hashed to fixed-length digests
  * first, so neither the comparison time nor the input lengths leak information
  * about the secret. Prevents timing side-channels on the password check.

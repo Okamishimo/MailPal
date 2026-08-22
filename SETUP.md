@@ -226,6 +226,40 @@ Cloudflare Access is an SSO layer that restricts who can open the dashboard URL,
 
 ---
 
+## API access for automation (Apple Shortcuts, scripts)
+
+The dashboard's REST API can be driven by automation clients that cannot perform
+the cookie-based login flow (e.g. Apple Shortcuts). Set a dedicated bearer token:
+
+```bash
+wrangler pages secret put API_TOKEN
+# Use a long random value, e.g. the output of: openssl rand -hex 32
+```
+
+Requests that send `Authorization: Bearer <API_TOKEN>` are then authorized for
+**`/api/` routes only** — the token never grants access to the HTML dashboard,
+so a leaked token cannot be used to browse your aliases in a browser. This works
+independently of `AUTH_PASSWORD`/Cloudflare Access, which continue to protect the
+dashboard UI as before.
+
+Example — create an alias (omit `localPart` to auto-generate one):
+
+```bash
+curl -X POST "https://mail.yourdomain.com/api/domains/yourdomain.com/aliases" \
+  -H "Authorization: Bearer $API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"tags":["shopping"]}'
+```
+
+The response is `201` with the created alias; `localPart@domain` is the new
+address. In Apple Shortcuts, use **Get Contents of URL** → `POST`, add the two
+headers above, and set the request body to JSON.
+
+> Treat `API_TOKEN` like a password. To revoke it, set a new value (or `wrangler
+> pages secret delete API_TOKEN` to turn the feature off entirely).
+
+---
+
 ## Step 10 — Add a custom domain to the Pages project (optional)
 
 By default the dashboard is reachable at a `*.pages.dev` URL. To use a vanity URL:
@@ -254,6 +288,7 @@ After onboarding, you can add more domains via the sidebar **+** button.
 | Variable | Where | Required | Description |
 |---|---|---|---|
 | `AUTH_PASSWORD` | Pages secret (`wrangler pages secret put`) | No | Enables dashboard password login. Omit to skip password auth. |
+| `API_TOKEN` | Pages secret (`wrangler pages secret put`) | No | Bearer token for automation (e.g. Apple Shortcuts). Authorizes `/api/` routes only. |
 | `KV` | `wrangler.toml` binding | Yes | KV namespace shared between the dashboard and the email worker. |
 | `DEMO_MODE` | Pages variable | No | Set to `1` to enable read-only demo mode with seed data (no real KV writes). |
 

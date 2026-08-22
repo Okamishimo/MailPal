@@ -4,6 +4,7 @@ import {
 	SESSION_IDLE_TTL,
 	constantTimeEqual,
 	createSession,
+	verifyApiToken,
 	verifySession
 } from '../../src/lib/auth.js';
 
@@ -13,6 +14,30 @@ describe('constantTimeEqual', () => {
 		expect(await constantTimeEqual('secret', 'Secret')).toBe(false);
 		expect(await constantTimeEqual('secret', 'secret-longer')).toBe(false);
 		expect(await constantTimeEqual('', '')).toBe(true);
+	});
+});
+
+describe('verifyApiToken', () => {
+	const TOKEN = 'a-secret-automation-token';
+
+	it('accepts a correct Bearer token', async () => {
+		expect(await verifyApiToken(`Bearer ${TOKEN}`, TOKEN)).toBe(true);
+	});
+
+	it('rejects a wrong token', async () => {
+		expect(await verifyApiToken('Bearer wrong-token', TOKEN)).toBe(false);
+	});
+
+	it('rejects when no API token is configured', async () => {
+		expect(await verifyApiToken(`Bearer ${TOKEN}`, undefined)).toBe(false);
+		expect(await verifyApiToken(`Bearer ${TOKEN}`, '')).toBe(false);
+	});
+
+	it('rejects a missing, empty, or non-Bearer header', async () => {
+		expect(await verifyApiToken(null, TOKEN)).toBe(false);
+		expect(await verifyApiToken('Bearer ', TOKEN)).toBe(false);
+		expect(await verifyApiToken(TOKEN, TOKEN)).toBe(false); // no "Bearer " prefix
+		expect(await verifyApiToken(`Basic ${TOKEN}`, TOKEN)).toBe(false);
 	});
 });
 
