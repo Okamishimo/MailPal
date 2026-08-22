@@ -1,0 +1,13 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "mailpal",
+	"compatibility_date": "2025-01-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"pages_build_output_dir": ".svelte-kit/cloudflare",
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "fc76f72eceef4fc98e637827c9f7f977"
+		}
+	]
+}

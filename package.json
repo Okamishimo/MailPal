@@ -14,9 +14,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:worker": "npm --prefix email-worker run check",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "deploy:frontend": "npm run build && wrangler pages deploy",
-    "deploy:worker": "wrangler deploy --cwd email-worker",
+    "deploy:worker": "wrangler deploy --config email-worker/wrangler.toml",
+    "deploy:worker:dry-run": "wrangler deploy --dry-run --config email-worker/wrangler.toml",
     "deploy": "npm run deploy:frontend && npm run deploy:worker"
   },
   "devDependencies": {

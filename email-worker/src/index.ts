@@ -1,4 +1,8 @@
-import type { KVNamespace, EmailMessage, ExecutionContext } from '@cloudflare/workers-types';
+import type {
+	KVNamespace,
+	ForwardableEmailMessage,
+	ExecutionContext
+} from '@cloudflare/workers-types';
 import type { AliasConfig, DomainConfig } from '../../src/lib/types.js';
 
 interface Env {
@@ -30,7 +34,7 @@ async function appendLog(
 }
 
 export default {
-	async email(message: EmailMessage, env: Env, ctx: ExecutionContext): Promise<void> {
+	async email(message: ForwardableEmailMessage, env: Env, ctx: ExecutionContext): Promise<void> {
 		const to = message.to;
 		const atIdx = to.indexOf('@');
 
