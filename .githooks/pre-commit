@@ -1,0 +1,31 @@
+#!/bin/sh
+#
+# MailPal pre-commit hook.
+#
+# This project delivers your real mail: a bug here means messages silently stop
+# forwarding. To prevent that, every commit must type-check, pass the full test
+# suite, and build cleanly before it is allowed through.
+#
+# Installed automatically via `git config core.hooksPath .githooks`, which the
+# root package.json "prepare" script runs on `npm install`.
+#
+# Bypass only in a genuine emergency with:  git commit --no-verify
+
+set -e
+
+# Run from the repository root regardless of where `git commit` was invoked.
+cd "$(git rev-parse --show-toplevel)"
+
+echo "▶ pre-commit: type-checking the email worker…"
+npm --prefix email-worker run check
+
+echo "▶ pre-commit: running the mail-delivery test suite…"
+npm --prefix email-worker test
+
+echo "▶ pre-commit: type-checking the frontend…"
+npm run check
+
+echo "▶ pre-commit: building the frontend…"
+npm run build
+
+echo "✓ pre-commit: build and all tests passed."
