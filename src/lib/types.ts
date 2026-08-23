@@ -68,3 +68,18 @@ export interface AliasConfig extends SenderRuleFields {
 	expiresAt?: number;    // Unix ms — worker rejects after this timestamp
 	maxForwards?: number;  // worker auto-disables when forwardedCount >= this
 }
+
+export interface BackupEntry {
+	key: string;
+	value: string;
+}
+
+export interface MailPalBackup {
+	format: 'mailpal-backup';
+	version: 1;
+	exportedAt: string;
+	checksum: string;
+	entries: BackupEntry[];
+}
+
+export type BackupImportMode = 'merge' | 'replace';

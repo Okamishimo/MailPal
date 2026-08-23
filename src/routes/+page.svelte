@@ -572,6 +572,7 @@
 	{destinations}
 	{tags}
 	{globalSenderBlocklist}
+	demo={data.demo}
 	onClose={() => (showSettings = false)}
 	onAdded={handleDestinationAdded}
 	onRemoved={handleDestinationRemoved}

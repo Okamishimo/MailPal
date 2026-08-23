@@ -97,6 +97,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		(await verifyApiToken(event.request.headers.get('Authorization'), platform.env.API_TOKEN))
 	) {
 		event.locals.authenticated = true;
+		event.locals.apiTokenAuthenticated = true;
 	} else if (event.locals.authMode === 'cloudflare-access') {
 		const teamDomain = platform.env.CF_ACCESS_TEAM_DOMAIN;
 		const aud = platform.env.CF_ACCESS_AUD;

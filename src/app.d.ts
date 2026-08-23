@@ -25,6 +25,7 @@ declare global {
 			kv: KVNamespace;
 			authMode: 'password' | 'cloudflare-access';
 			authenticated: boolean;
+			apiTokenAuthenticated?: boolean;
 			demo?: boolean;
 		}
 		interface Error {}

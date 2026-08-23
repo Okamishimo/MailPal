@@ -2,6 +2,7 @@
 	import type { DestinationAddress, GlobalSenderBlocklist, Tag } from '$lib/types.js';
 	import Dialog from './Dialog.svelte';
 	import ColorPicker from './ColorPicker.svelte';
+	import BackupSection from './BackupSection.svelte';
   import { randomSwatchColor, SWATCHES } from '$lib/constants';
 
 	let {
@@ -15,7 +16,8 @@
 		onTagDeleted,
 		onTagUpdated,
 		globalSenderBlocklist,
-		onGlobalSenderBlocklistUpdated
+		onGlobalSenderBlocklistUpdated,
+		demo = false
 	}: {
 		open: boolean;
 		destinations: DestinationAddress[];
@@ -28,6 +30,7 @@
 		onTagUpdated: (tag: Tag) => void;
 		globalSenderBlocklist: GlobalSenderBlocklist;
 		onGlobalSenderBlocklistUpdated: (blocklist: GlobalSenderBlocklist) => void;
+		demo?: boolean;
 	} = $props();
 
 	let newEmail = $state('');
@@ -210,7 +213,7 @@
 </script>
 
 <Dialog open={open} title="設定" onClose={handleClose}>
-	<div class="max-h-[calc(100dvh-8rem)] space-y-4 overflow-y-auto p-4 sm:p-6">
+	<div class="space-y-4 p-4 sm:p-6">
 
 		<!-- Section header -->
 		<div>
@@ -447,5 +450,9 @@
 				+ 新增標籤
 			</button>
 		{/if}
+
+		<div class="border-t border-app-border"></div>
+
+		<BackupSection {demo} />
 	</div>
 </Dialog>

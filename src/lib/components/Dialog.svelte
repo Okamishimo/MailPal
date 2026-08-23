@@ -21,9 +21,9 @@
 	<Dialog.Portal>
 		<Dialog.Overlay class="fixed inset-0 bg-black/65 backdrop-blur-sm z-40" />
 		<Dialog.Content
-			class="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-app-border bg-app-surface text-app-text shadow-2xl focus:outline-none"
+			class="fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-app-border bg-app-surface text-app-text shadow-2xl focus:outline-none"
 		>
-			<div class="flex items-center justify-between border-b border-app-border px-4 py-4 sm:px-6">
+			<div class="flex shrink-0 items-center justify-between border-b border-app-border px-4 py-4 sm:px-6">
 				<div>
 					<Dialog.Title class="font-semibold text-app-text">{title}</Dialog.Title>
 					{#if subtitle}
@@ -40,7 +40,9 @@
 				</Dialog.Close>
 			</div>
 
-			{@render children()}
+			<div class="min-h-0 overflow-y-auto">
+				{@render children()}
+			</div>
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
