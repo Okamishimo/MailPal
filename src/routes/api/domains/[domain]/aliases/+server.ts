@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { getDomain, getAlias, listAliases, putAlias } from '$lib/kv.js';
 import { generateSlug } from '$lib/sluggen.js';
 import type { AliasConfig } from '$lib/types.js';
-import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
+import { coerceSenderListInput, normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,7 +38,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			...Object.fromEntries(
 				senderRuleFields
 					.filter((field) => field in body)
-					.map((field) => [field, body[field]])
+					// Automation clients (e.g. Apple Shortcuts) can't build JSON
+					// arrays, so accept the list fields as a comma-separated string.
+					.map((field) => [
+						field,
+						field === 'senderMode' ? body[field] : coerceSenderListInput(body[field])
+					])
 			)
 		});
 		if (!result.ok) return json({ error: result.error }, { status: 400 });

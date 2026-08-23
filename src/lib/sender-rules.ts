@@ -76,6 +76,30 @@ function normalizeStoredList(value: unknown, kind: 'address' | 'domain'): string
 	return [...new Set(normalized)].slice(0, MAX_RULES_PER_LIST);
 }
 
+/**
+ * The four sender-rule fields that hold lists (everything except `senderMode`).
+ * Clients that cannot build a JSON array — e.g. Apple Shortcuts — may send these
+ * as a comma/whitespace-separated string instead; {@link coerceSenderListInput}
+ * turns that into an array before validation.
+ */
+export const SENDER_LIST_FIELDS = [
+	'allowedSenderAddresses',
+	'allowedSenderDomains',
+	'blockedSenderAddresses',
+	'blockedSenderDomains'
+] as const;
+
+/**
+ * Accepts a sender list as either an array (from the dashboard UI) or a
+ * comma/whitespace-separated string (from automation clients) and returns an
+ * array. Non-string, non-array values are returned unchanged so validation can
+ * reject them with a proper error.
+ */
+export function coerceSenderListInput(value: unknown): unknown {
+	if (typeof value !== 'string') return value;
+	return value.split(/[\s,]+/).filter(Boolean);
+}
+
 export function normalizeSenderRules(rules: SenderRuleFields | null | undefined): NormalizedSenderRules {
 	return {
 		senderMode: rules?.senderMode === 'allowlist' ? 'allowlist' : 'normal',

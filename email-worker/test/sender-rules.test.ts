@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	MAX_RULES_PER_LIST,
 	MAX_SUBJECT_LENGTH,
+	coerceSenderListInput,
 	domainMatches,
 	evaluateSenderRules,
 	normalizeDomain,
@@ -13,6 +14,25 @@ import {
 	validateSenderRules
 } from '../../src/lib/sender-rules.js';
 import { EMPTY_GLOBAL_BLOCKLIST, makeAlias } from './helpers.js';
+
+describe('coerceSenderListInput', () => {
+	it('splits a comma/whitespace-separated string into an array', () => {
+		expect(coerceSenderListInput('a.com, b.com')).toEqual(['a.com', 'b.com']);
+		expect(coerceSenderListInput('a.com,b.com  c.com')).toEqual(['a.com', 'b.com', 'c.com']);
+	});
+
+	it('returns an empty array for empty or whitespace-only strings', () => {
+		expect(coerceSenderListInput('')).toEqual([]);
+		expect(coerceSenderListInput('   ')).toEqual([]);
+	});
+
+	it('passes arrays and other types through unchanged', () => {
+		const arr = ['a.com'];
+		expect(coerceSenderListInput(arr)).toBe(arr);
+		expect(coerceSenderListInput(undefined)).toBe(undefined);
+		expect(coerceSenderListInput(42)).toBe(42);
+	});
+});
 
 describe('normalizeDomain', () => {
 	it('lowercases and trims valid domains', () => {
