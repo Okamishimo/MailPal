@@ -114,6 +114,48 @@ describe('forwarding behavior', () => {
 		expect(entry.reason).toBeUndefined();
 	});
 
+	it('decodes an RFC 2047 encoded subject before storing it', async () => {
+		const { kv } = await runEmail({
+			subject: '=?UTF-8?B?5rOo5paH44GC44KK44GM44Go44GG44GU44GW44GE44G+44GZ?='
+		});
+		expect(readLog(kv)[0].subject).toBe('注文ありがとうございます');
+	});
+
+	it('records the From header address when it differs from the envelope sender', async () => {
+		const { kv } = await runEmail({
+			from: 'bounce-2026082614-0011@srs6583.cuenote.jp',
+			headerFrom: '=?UTF-8?B?44Kr44OJ44Kr44Ov?= <shop@kadokawa.co.jp>',
+			cc: 'Team <team@example.com>, second@example.com'
+		});
+		const entry = readLog(kv)[0];
+		expect(entry.from).toBe('bounce-2026082614-0011@srs6583.cuenote.jp');
+		expect(entry.headerFrom).toBe('shop@kadokawa.co.jp');
+		expect(entry.cc).toEqual(['team@example.com', 'second@example.com']);
+	});
+
+	it('omits the From header address when it repeats the envelope sender', async () => {
+		const { kv } = await runEmail({
+			from: 'sender@example.com',
+			headerFrom: 'Sender <sender@example.com>'
+		});
+		const entry = readLog(kv)[0];
+		expect(entry.headerFrom).toBeUndefined();
+		expect(entry.cc).toBeUndefined();
+	});
+
+	it('records From and Cc metadata on blocked mail too', async () => {
+		const { kv } = await runEmail({
+			alias: makeAlias({ enabled: false }),
+			from: 'bounce@relay.example.net',
+			headerFrom: 'Shop <shop@example.com>',
+			cc: 'watcher@example.org'
+		});
+		const entry = readLog(kv)[0];
+		expect(entry.action).toBe('blocked');
+		expect(entry.headerFrom).toBe('shop@example.com');
+		expect(entry.cc).toEqual(['watcher@example.org']);
+	});
+
 	it('treats a null maxForwards as unlimited', async () => {
 		const { forward } = await runEmail({
 			alias: makeAlias({ forwardedCount: 9999, maxForwards: undefined })

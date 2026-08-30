@@ -1,3 +1,4 @@
+import { decodeMimeHeader } from './mime-header.js';
 import type {
 	AliasConfig,
 	BlockReason,
@@ -8,6 +9,8 @@ import type {
 
 export const MAX_RULES_PER_LIST = 200;
 export const MAX_SUBJECT_LENGTH = 200;
+/** How many `Cc:` addresses an activity entry keeps. */
+export const MAX_CC_ADDRESSES = 5;
 
 const LOCAL_PART_RE = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/;
 const DOMAIN_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -242,9 +245,72 @@ export function evaluateSenderRules(
 	return { allowed: true, sender };
 }
 
+/**
+ * C0/C1 controls plus the bidi overrides and isolates. Decoding encoded-words
+ * means a subject can now carry any Unicode the sender chose, and U+202E and
+ * friends visually reorder the rest of the line they are rendered in — enough to
+ * make a log row read as a different address than it holds. LRM/RLM and ZWJ are
+ * deliberately left alone so genuine right-to-left subjects and emoji survive.
+ */
+const DISPLAY_CONTROL_RE = /[\u0000-\u001f\u007f-\u009f\u061c\u202a-\u202e\u2066-\u2069]+/g;
+
 export function sanitizeSubject(value: string | null | undefined): string | undefined {
-	if (!value) return undefined;
-	const cleaned = value.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+	if (typeof value !== 'string' || !value) return undefined;
+	const cleaned = decodeMimeHeader(value)
+		.replace(DISPLAY_CONTROL_RE, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
 	if (!cleaned) return undefined;
 	return Array.from(cleaned).slice(0, MAX_SUBJECT_LENGTH).join('');
+}
+
+function addressFromMailbox(mailbox: string): string | null {
+	const open = mailbox.lastIndexOf('<');
+	const close = mailbox.indexOf('>', open + 1);
+	const candidate =
+		open >= 0 && close > open
+			? mailbox.slice(open + 1, close)
+			: mailbox.replace(/\([^)]*\)/g, '');
+	return normalizeEmailAddress(candidate.trim());
+}
+
+/**
+ * Pulls the bare addresses out of an address header such as `From:` or `Cc:`,
+ * which may carry display names, comments and several comma-separated mailboxes:
+ * `"Kadokawa Store" <shop@kadokawa.co.jp>, friend@example.com`. Anything that is
+ * not a valid address is dropped, so the result is safe to store and display.
+ *
+ * These addresses are display metadata only — sender authorization always runs on
+ * the SMTP envelope sender, which cannot be spoofed as freely as these headers.
+ */
+export function extractHeaderAddresses(
+	value: string | null | undefined,
+	limit = MAX_CC_ADDRESSES
+): string[] {
+	if (!value) return [];
+
+	const mailboxes: string[] = [];
+	let current = '';
+	let inQuotes = false;
+	let inAngles = false;
+	for (const char of value.slice(0, 2000)) {
+		if (char === '"') inQuotes = !inQuotes;
+		else if (!inQuotes && char === '<') inAngles = true;
+		else if (!inQuotes && char === '>') inAngles = false;
+		else if (char === ',' && !inQuotes && !inAngles) {
+			mailboxes.push(current);
+			current = '';
+			continue;
+		}
+		current += char;
+	}
+	mailboxes.push(current);
+
+	const addresses: string[] = [];
+	for (const mailbox of mailboxes) {
+		const address = addressFromMailbox(mailbox);
+		if (address && !addresses.includes(address)) addresses.push(address);
+		if (addresses.length >= limit) break;
+	}
+	return addresses;
 }

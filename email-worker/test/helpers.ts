@@ -94,6 +94,7 @@ export interface RunOptions {
 	to?: string;
 	subject?: string;
 	headerFrom?: string;
+	cc?: string;
 	globalBlocklist?: GlobalSenderBlocklist;
 	/** Override the `forward` implementation, e.g. to simulate a delivery failure. */
 	forward?: (address: string) => Promise<unknown>;
@@ -133,6 +134,7 @@ export async function runEmail(options: RunOptions = {}): Promise<RunResult> {
 	const headers = new Headers();
 	if (options.subject !== undefined) headers.set('subject', options.subject);
 	if (options.headerFrom !== undefined) headers.set('from', options.headerFrom);
+	if (options.cc !== undefined) headers.set('cc', options.cc);
 
 	const forward = vi.fn(options.forward ?? (async () => ({ messageId: 'test-message' })));
 	const setReject = vi.fn();

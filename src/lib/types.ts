@@ -51,6 +51,13 @@ export interface LogEntry {
 	reason?: BlockReason;
 	matchedRule?: string;
 	subject?: string;
+	/**
+	 * `From:` header address, stored only when it differs from the envelope
+	 * sender (e.g. bounce/SRS senders). Display metadata only — it is spoofable
+	 * and never used for sender authorization.
+	 */
+	headerFrom?: string;
+	cc?: string[];          // `Cc:` header addresses, bounded
 }
 
 export interface AliasConfig extends SenderRuleFields {

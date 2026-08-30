@@ -7,7 +7,7 @@ import type {
 	LogEntry,
 	Tag
 } from './types.js';
-import { normalizeGlobalSenderBlocklist } from './sender-rules.js';
+import { normalizeGlobalSenderBlocklist, sanitizeSubject } from './sender-rules.js';
 
 const GLOBAL_SENDER_BLOCKLIST_KEY = 'settings:sender-blocklist';
 
@@ -107,7 +107,12 @@ export async function getLog(
 	localPart: string
 ): Promise<LogEntry[]> {
 	const val = await kv.get(`log:${domain}/${localPart}`);
-	return val ? (JSON.parse(val) as LogEntry[]) : [];
+	const log = val ? (JSON.parse(val) as LogEntry[]) : [];
+	// Entries written before subjects were decoded still hold RFC 2047
+	// encoded-words; decoding on read keeps that history readable.
+	return log.map((entry) =>
+		typeof entry.subject === 'string' ? { ...entry, subject: sanitizeSubject(entry.subject) } : entry
+	);
 }
 
 export async function deleteLog(kv: KVNamespace, domain: string, localPart: string): Promise<void> {

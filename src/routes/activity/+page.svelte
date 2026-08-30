@@ -26,6 +26,31 @@
 		return new Date(at).toLocaleDateString('zh-TW');
 	}
 
+	/** Subjects are stored in full; the list shows a short preview of each. */
+	const SUBJECT_PREVIEW_LENGTH = 20;
+
+	function subjectPreview(subject: string): string {
+		const chars = Array.from(subject);
+		return chars.length > SUBJECT_PREVIEW_LENGTH
+			? `${chars.slice(0, SUBJECT_PREVIEW_LENGTH).join('')}…`
+			: subject;
+	}
+
+	/**
+	 * Prefer the `From:` header — the address a mail client shows — over the SMTP
+	 * envelope sender, which is often an unreadable bounce/SRS address.
+	 */
+	function displaySender(entry: LogEntry): string {
+		return entry.headerFrom || entry.from || '（無效的寄件者）';
+	}
+
+	function senderTitle(entry: LogEntry): string | undefined {
+		if (!entry.headerFrom) return entry.from || undefined;
+		// The From header is unauthenticated; the envelope sender is what the
+		// sender rules matched on, so it stays visible on hover.
+		return `${entry.headerFrom}（信封寄件者：${entry.from || '無效'}）`;
+	}
+
 	function blockReasonLabel(reason: LogEntry['reason']): string {
 		if (!reason) return '已封鎖';
 		return ({
@@ -124,14 +149,20 @@
 									{entry.action === 'blocked' ? blockReasonLabel(entry.reason) : entry.action}
 								</span>
 							</div>
+							<p class="text-xs text-app-muted/70 truncate" title={entry.to}>→ {entry.to}</p>
 							{#if entry.subject}
-								<p class="text-sm text-app-text/90 truncate" title={entry.subject}>{entry.subject}</p>
+								<p class="text-sm text-app-text/90 truncate" title={entry.subject}>
+									{subjectPreview(entry.subject)}
+								</p>
 							{/if}
-							<div class="flex items-center gap-3 text-xs text-app-muted flex-wrap">
-								<span class="truncate" title={entry.from || undefined}>寄件者：{entry.from || '（無效的寄件者）'}</span>
-								<span class="shrink-0">→</span>
-								<span class="truncate" title={entry.to}>{entry.to}</span>
-							</div>
+							<p class="text-xs text-app-muted truncate" title={senderTitle(entry)}>
+								寄件者：{displaySender(entry)}
+							</p>
+							{#if entry.cc?.length}
+								<p class="text-xs text-app-muted truncate" title={entry.cc.join('、')}>
+									副本：{entry.cc.join('、')}
+								</p>
+							{/if}
 							{#if entry.action === 'blocked' && entry.matchedRule}
 								<p class="text-[11px] text-app-muted/70 truncate" title={entry.matchedRule}>
 									符合的規則：{entry.matchedRule}

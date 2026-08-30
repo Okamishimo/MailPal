@@ -61,6 +61,37 @@ describe('KV key formats match the worker', () => {
 		expect(log).toHaveLength(1);
 		expect(log[0].action).toBe('forwarded');
 	});
+
+	it('decodes encoded-word subjects written before subjects were decoded', async () => {
+		const kv = new MemoryKV();
+		kv.store.set(
+			'log:aliases.example.com/orders',
+			JSON.stringify([
+				{
+					at: 1,
+					action: 'forwarded',
+					from: 'sender@example.com',
+					to: 'inbox@example.net',
+					subject: '=?UTF-8?B?5LiW55WM?='
+				}
+			])
+		);
+		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
+		expect(log[0].subject).toBe('世界');
+	});
+
+	it('reads a log entry whose subject is not a string without throwing', async () => {
+		const kv = new MemoryKV();
+		kv.store.set(
+			'log:aliases.example.com/orders',
+			JSON.stringify([
+				{ at: 1, action: 'forwarded', from: 'sender@example.com', to: 'inbox@example.net', subject: 42 }
+			])
+		);
+		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
+		expect(log).toHaveLength(1);
+		expect(log[0].subject).toBe(42 as unknown as string);
+	});
 });
 
 describe('end-to-end: dashboard writes → worker delivers', () => {

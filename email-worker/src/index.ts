@@ -12,6 +12,8 @@ import type {
 } from '../../src/lib/types.js';
 import {
 	evaluateSenderRules,
+	extractHeaderAddresses,
+	MAX_CC_ADDRESSES,
 	normalizeEmailAddress,
 	normalizeGlobalSenderBlocklist,
 	sanitizeSubject
@@ -19,6 +21,26 @@ import {
 
 const LOG_LIMIT = 50;
 const GENERIC_REJECTION = 'Message rejected';
+
+/**
+ * The bounded, display-only header metadata an activity entry keeps: a decoded
+ * subject plus the `From:`/`Cc:` addresses. `From:` is stored only when it
+ * differs from the envelope sender, which is what the bounce/SRS addresses in
+ * forwarded newsletters look like; authorization still uses the envelope alone.
+ */
+function activityMetadata(
+	message: ForwardableEmailMessage,
+	envelopeSender: string | null
+): Pick<LogEntry, 'subject' | 'headerFrom' | 'cc'> {
+	const subject = sanitizeSubject(message.headers.get('subject'));
+	const headerFrom = extractHeaderAddresses(message.headers.get('from'), 1)[0];
+	const cc = extractHeaderAddresses(message.headers.get('cc'), MAX_CC_ADDRESSES);
+	return {
+		...(subject ? { subject } : {}),
+		...(headerFrom && headerFrom !== envelopeSender ? { headerFrom } : {}),
+		...(cc.length > 0 ? { cc } : {})
+	};
+}
 
 function schedule(ctx: ExecutionContext, promise: Promise<unknown>, operation: string): void {
 	ctx.waitUntil(
@@ -88,7 +110,6 @@ function blockMessage(
 		blockedCount: (aliasConfig.blockedCount ?? 0) + 1,
 		lastUsedAt: now
 	};
-	const subject = sanitizeSubject(message.headers.get('subject'));
 	const entry: LogEntry = {
 		at: now,
 		action: 'blocked',
@@ -97,7 +118,7 @@ function blockMessage(
 		recipient: `${localPart}@${domain}`,
 		reason: options.reason,
 		...(options.matchedRule ? { matchedRule: options.matchedRule } : {}),
-		...(subject ? { subject } : {})
+		...activityMetadata(message, options.sender)
 	};
 
 	schedule(
@@ -226,14 +247,13 @@ export async function handleEmail(
 			forwardedCount: (aliasConfig.forwardedCount ?? 0) + 1,
 			lastUsedAt: now
 		};
-		const subject = sanitizeSubject(message.headers.get('subject'));
 		const entry: LogEntry = {
 			at: now,
 			action: 'forwarded',
 			from: senderDecision.sender!,
 			to: target,
 			recipient: `${localPart}@${domain}`,
-			...(subject ? { subject } : {})
+			...activityMetadata(message, senderDecision.sender)
 		};
 		schedule(
 			ctx,

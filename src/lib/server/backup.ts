@@ -215,7 +215,9 @@ function validateLogEntry(key: string, value: string): string | null {
 			!isOptionalString(log.recipient) ||
 			(log.reason !== undefined && (typeof log.reason !== 'string' || !BLOCK_REASONS.has(log.reason))) ||
 			!isOptionalString(log.matchedRule) ||
-			!isOptionalString(log.subject)
+			!isOptionalString(log.subject) ||
+			!isOptionalString(log.headerFrom) ||
+			!isOptionalStringArray(log.cc)
 		) {
 			return `${key} 包含無效的活動紀錄`;
 		}

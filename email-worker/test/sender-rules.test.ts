@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	MAX_CC_ADDRESSES,
 	MAX_RULES_PER_LIST,
 	MAX_SUBJECT_LENGTH,
 	coerceSenderListInput,
 	domainMatches,
 	evaluateSenderRules,
+	extractHeaderAddresses,
 	normalizeDomain,
 	normalizeEmailAddress,
 	normalizeGlobalSenderBlocklist,
@@ -254,5 +256,64 @@ describe('sanitizeSubject', () => {
 	it('truncates by Unicode code point, not UTF-16 unit', () => {
 		const subject = sanitizeSubject('🙂'.repeat(250))!;
 		expect(Array.from(subject)).toHaveLength(MAX_SUBJECT_LENGTH);
+	});
+});
+
+describe('extractHeaderAddresses', () => {
+	it('returns an empty list for missing or address-free headers', () => {
+		expect(extractHeaderAddresses(null)).toEqual([]);
+		expect(extractHeaderAddresses('')).toEqual([]);
+		expect(extractHeaderAddresses('undisclosed-recipients:;')).toEqual([]);
+	});
+
+	it('takes the address out of a display-name mailbox', () => {
+		expect(extractHeaderAddresses('"Kadokawa, Store" <Shop@Kadokawa.co.JP>')).toEqual([
+			'shop@kadokawa.co.jp'
+		]);
+		expect(extractHeaderAddresses('plain@example.com (Plain Sender)')).toEqual([
+			'plain@example.com'
+		]);
+	});
+
+	it('splits several mailboxes and drops duplicates and invalid ones', () => {
+		expect(
+			extractHeaderAddresses('a@example.com, A@example.com, not-an-address, <b@example.com>')
+		).toEqual(['a@example.com', 'b@example.com']);
+	});
+
+	it('honors the address limit', () => {
+		const header = Array.from({ length: 10 }, (_, i) => `user${i}@example.com`).join(', ');
+		expect(extractHeaderAddresses(header, 1)).toEqual(['user0@example.com']);
+		expect(extractHeaderAddresses(header)).toHaveLength(MAX_CC_ADDRESSES);
+	});
+});
+
+describe('sanitizeSubject decoding', () => {
+	it('decodes encoded-words and still collapses whitespace', () => {
+		expect(sanitizeSubject('=?UTF-8?Q?Order_shipped?=\r\n  today')).toBe('Order shipped today');
+	});
+
+	it('ignores non-string values from malformed storage', () => {
+		expect(sanitizeSubject(42 as unknown as string)).toBeUndefined();
+		expect(sanitizeSubject({} as unknown as string)).toBeUndefined();
+	});
+
+	it('strips control characters that a decoded subject can now smuggle in', () => {
+		const rightToLeftOverride = String.fromCharCode(0x202e);
+		const isolate = String.fromCharCode(0x2066);
+		const nextLine = String.fromCharCode(0x0085);
+		const decoded = sanitizeSubject(
+			`Invoice ${rightToLeftOverride}moc.live@rekcatta${isolate}${nextLine}x`
+		)!;
+		expect(decoded).toBe('Invoice moc.live@rekcatta x');
+		expect(decoded).not.toMatch(/[\u0080-\u009f\u202a-\u202e\u2066-\u2069]/);
+	});
+
+	it('keeps emoji sequences and right-to-left marks intact', () => {
+		const zeroWidthJoiner = String.fromCharCode(0x200d);
+		const rightToLeftMark = String.fromCharCode(0x200f);
+		expect(sanitizeSubject(`a${zeroWidthJoiner}b${rightToLeftMark}c`)).toBe(
+			`a${zeroWidthJoiner}b${rightToLeftMark}c`
+		);
 	});
 });
