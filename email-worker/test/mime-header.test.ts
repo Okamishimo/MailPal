@@ -55,6 +55,39 @@ describe('decodeMimeHeader', () => {
 		expect(decodeMimeHeader(mismatched)).toBe(mismatched);
 	});
 
+	it('decodes each word on its own, which stateful ISO-2022-JP requires', () => {
+		// Joining these two byte streams would put an escape sequence directly
+		// after another one, which decodes to a replacement character.
+		expect(
+			decodeMimeHeader('=?ISO-2022-JP?B?GyRCJUYlOSVIGyhC?= =?ISO-2022-JP?B?GyRCJUYlOSVIGyhC?=')
+		).toBe('テストテスト');
+	});
+
+	it('rescues a character split across two encoded-words', () => {
+		// 世界 is split mid-character, against RFC 2047 §5, but senders do it.
+		expect(decodeMimeHeader('=?UTF-8?B?5LiW5w==?= =?UTF-8?B?lYw=?=')).toBe('世界');
+	});
+
+	it('keeps the readable words when one beside them is malformed', () => {
+		expect(decodeMimeHeader('=?UTF-8?B?SGVsbG8=?= =?UTF-8?B?////?=')).toBe(
+			'Hello =?UTF-8?B?////?='
+		);
+	});
+
+	it('leaves a truncated word alone unless recovery is requested', () => {
+		expect(decodeMimeHeader('=?UTF-8?B?44GT44KT44Gr44')).toBe('=?UTF-8?B?44GT44KT44Gr44');
+		expect(decodeMimeHeader('Build failed at token =?UTF-8')).toBe('Build failed at token =?UTF-8');
+		expect(decodeMimeHeader('=?UTF-8?B?5LiW55WM?= =?UTF-8?Q')).toBe('世界 =?UTF-8?Q');
+	});
+
+	it('decodes as much as it can of a truncated word when recovery is on', () => {
+		const recover = { recoverTruncated: true };
+		expect(decodeMimeHeader('=?UTF-8?B?44GT44KT44Gr44', recover)).toBe('こんに');
+		expect(decodeMimeHeader('=?UTF-8?Q?=E3=81=93=E3=82=93=E', recover)).toBe('こん');
+		expect(decodeMimeHeader('=?UTF-8?B?5LiW55WM?= =?UTF-8?Q', recover)).toBe('世界');
+		expect(decodeMimeHeader('Hello =?UTF-8', recover)).toBe('Hello');
+	});
+
 	it('decodes a value that is already plain text idempotently', () => {
 		const once = decodeMimeHeader('=?UTF-8?B?5LiW55WM?=');
 		expect(decodeMimeHeader(once)).toBe(once);

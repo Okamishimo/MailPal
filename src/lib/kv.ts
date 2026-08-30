@@ -109,9 +109,12 @@ export async function getLog(
 	const val = await kv.get(`log:${domain}/${localPart}`);
 	const log = val ? (JSON.parse(val) as LogEntry[]) : [];
 	// Entries written before subjects were decoded still hold RFC 2047
-	// encoded-words; decoding on read keeps that history readable.
+	// encoded-words, cut off at 200 characters of encoded text; decoding on read
+	// keeps that history readable until the ring buffer ages those entries out.
 	return log.map((entry) =>
-		typeof entry.subject === 'string' ? { ...entry, subject: sanitizeSubject(entry.subject) } : entry
+		typeof entry.subject === 'string'
+			? { ...entry, subject: sanitizeSubject(entry.subject, { recoverTruncated: true }) }
+			: entry
 	);
 }
 

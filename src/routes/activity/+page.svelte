@@ -26,16 +26,6 @@
 		return new Date(at).toLocaleDateString('zh-TW');
 	}
 
-	/** Subjects are stored in full; the list shows a short preview of each. */
-	const SUBJECT_PREVIEW_LENGTH = 20;
-
-	function subjectPreview(subject: string): string {
-		const chars = Array.from(subject);
-		return chars.length > SUBJECT_PREVIEW_LENGTH
-			? `${chars.slice(0, SUBJECT_PREVIEW_LENGTH).join('')}…`
-			: subject;
-	}
-
 	/**
 	 * Prefer the `From:` header — the address a mail client shows — over the SMTP
 	 * envelope sender, which is often an unreadable bounce/SRS address.
@@ -151,8 +141,10 @@
 							</div>
 							<p class="text-xs text-app-muted/70 truncate" title={entry.to}>→ {entry.to}</p>
 							{#if entry.subject}
+								<!-- Full subject on one line: CSS truncates to the row's width with an
+								     ellipsis, and the title attribute shows all of it on hover. -->
 								<p class="text-sm text-app-text/90 truncate" title={entry.subject}>
-									{subjectPreview(entry.subject)}
+									{entry.subject}
 								</p>
 							{/if}
 							<p class="text-xs text-app-muted truncate" title={senderTitle(entry)}>

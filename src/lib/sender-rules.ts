@@ -1,4 +1,4 @@
-import { decodeMimeHeader } from './mime-header.js';
+import { decodeMimeHeader, type MimeDecodeOptions } from './mime-header.js';
 import type {
 	AliasConfig,
 	BlockReason,
@@ -254,9 +254,12 @@ export function evaluateSenderRules(
  */
 const DISPLAY_CONTROL_RE = /[\u0000-\u001f\u007f-\u009f\u061c\u202a-\u202e\u2066-\u2069]+/g;
 
-export function sanitizeSubject(value: string | null | undefined): string | undefined {
+export function sanitizeSubject(
+	value: string | null | undefined,
+	options?: MimeDecodeOptions
+): string | undefined {
 	if (typeof value !== 'string' || !value) return undefined;
-	const cleaned = decodeMimeHeader(value)
+	const cleaned = decodeMimeHeader(value, options)
 		.replace(DISPLAY_CONTROL_RE, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
@@ -276,9 +279,10 @@ function addressFromMailbox(mailbox: string): string | null {
 
 /**
  * Pulls the bare addresses out of an address header such as `From:` or `Cc:`,
- * which may carry display names, comments and several comma-separated mailboxes:
- * `"Kadokawa Store" <shop@kadokawa.co.jp>, friend@example.com`. Anything that is
- * not a valid address is dropped, so the result is safe to store and display.
+ * which may carry display names, comments, several comma-separated mailboxes and
+ * RFC 5322 groups: `"Kadokawa Store" <shop@kadokawa.co.jp>, friend@example.com`
+ * or `Reviewers: a@example.com, b@example.org;`. Anything that is not a valid
+ * address is dropped, so the result is safe to store and display.
  *
  * These addresses are display metadata only — sender authorization always runs on
  * the SMTP envelope sender, which cannot be spoofed as freely as these headers.
@@ -297,8 +301,13 @@ export function extractHeaderAddresses(
 		if (char === '"') inQuotes = !inQuotes;
 		else if (!inQuotes && char === '<') inAngles = true;
 		else if (!inQuotes && char === '>') inAngles = false;
-		else if (char === ',' && !inQuotes && !inAngles) {
+		else if (!inQuotes && !inAngles && (char === ',' || char === ';')) {
+			// `;` closes an RFC 5322 group (`Reviewers: a@x, b@y;`).
 			mailboxes.push(current);
+			current = '';
+			continue;
+		} else if (char === ':' && !inQuotes && !inAngles) {
+			// Everything before `:` is the group's display name, not an address.
 			current = '';
 			continue;
 		}

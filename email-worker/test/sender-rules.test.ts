@@ -281,6 +281,17 @@ describe('extractHeaderAddresses', () => {
 		).toEqual(['a@example.com', 'b@example.com']);
 	});
 
+	it('reads the members of an RFC 5322 group', () => {
+		expect(extractHeaderAddresses('Reviewers: a@example.com, b@example.org;')).toEqual([
+			'a@example.com',
+			'b@example.org'
+		]);
+		expect(extractHeaderAddresses('undisclosed-recipients:;')).toEqual([]);
+		expect(
+			extractHeaderAddresses('Team: "Last, First" <c@example.com>;, outside@example.net')
+		).toEqual(['c@example.com', 'outside@example.net']);
+	});
+
 	it('honors the address limit', () => {
 		const header = Array.from({ length: 10 }, (_, i) => `user${i}@example.com`).join(', ');
 		expect(extractHeaderAddresses(header, 1)).toEqual(['user0@example.com']);
