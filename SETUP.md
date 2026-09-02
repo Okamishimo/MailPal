@@ -109,9 +109,45 @@ wrangler kv namespace list
 
 ---
 
-## Step 4 — Create the Wrangler configuration files
+## Step 4 — Create a D1 database for the activity log (recommended)
 
-Two `wrangler.toml` files must be created — one for the Pages project and one for the email worker. Both must reference the **same KV namespace ID** from Step 3.
+The activity log lives in a D1 database. Without one MailPal falls back to
+storing it in KV, which works but costs a second KV write for every message it
+handles — and the Workers Free plan allows 1,000 KV writes a day, so that
+fallback caps the service at roughly 500 messages a day. A D1 insert needs no
+prior read, and the free plan allows 100,000 row writes a day.
+
+```bash
+wrangler d1 create mailpal
+```
+
+Wrangler prints a snippet containing a `database_id` — a UUID like
+`cf1f2511-4cc8-4d3d-a3f6-189fb278987f`. **Copy it**, the way you copied the KV
+namespace ID. To find the ID of a database that already exists:
+
+```bash
+wrangler d1 list
+```
+
+Then create the schema:
+
+```bash
+wrangler d1 migrations apply mailpal --remote
+```
+
+The migrations live in `migrations/` in the repository, which is where Wrangler
+looks by default. Omit `--remote` to apply them to the local development
+database instead.
+
+> **Skipping this step is safe.** Leave the `[[d1_databases]]` blocks out of both
+> config files in the next step and everything keeps working against KV. You can
+> add the database later — see *Moving an existing activity log into D1* below.
+
+---
+
+## Step 5 — Create the Wrangler configuration files
+
+Two `wrangler.toml` files must be created — one for the Pages project and one for the email worker. Both must reference the **same KV namespace ID** from Step 3, and the **same D1 database ID** from Step 4.
 
 ### `wrangler.toml` (repository root — for the dashboard)
 
@@ -126,9 +162,16 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 [[kv_namespaces]]
 binding = "KV"
 id = "YOUR_KV_NAMESPACE_ID"
+
+# Omit this block to keep the activity log in KV.
+[[d1_databases]]
+binding = "DB"
+database_name = "mailpal"
+database_id = "YOUR_D1_DATABASE_ID"
 ```
 
-Replace `YOUR_KV_NAMESPACE_ID` with the ID from Step 3.
+Replace `YOUR_KV_NAMESPACE_ID` with the ID from Step 3, and
+`YOUR_D1_DATABASE_ID` with the one from Step 4.
 
 ### `email-worker/wrangler.toml` (for the email worker)
 
@@ -143,13 +186,19 @@ compatibility_flags = ["nodejs_compat"]
 [[kv_namespaces]]
 binding = "KV"
 id = "YOUR_KV_NAMESPACE_ID"
+
+# Omit this block to keep the activity log in KV.
+[[d1_databases]]
+binding = "DB"
+database_name = "mailpal"
+database_id = "YOUR_D1_DATABASE_ID"
 ```
 
-**Critical:** Both files must have the identical `id` value. If they differ, the dashboard and the email worker will operate on separate, disconnected KV namespaces.
+**Critical:** Both files must have the identical `id` and `database_id` values. If they differ, the dashboard and the email worker will operate on separate, disconnected stores — the dashboard would show an activity log the worker never writes to.
 
 ---
 
-## Step 5 — Deploy the email worker
+## Step 6 — Deploy the email worker
 
 From inside the `email-worker/` directory:
 
@@ -163,7 +212,7 @@ On success, Wrangler prints the worker name (`mailpal-email-worker`) and a `work
 
 ---
 
-## Step 6 — Configure Cloudflare Email Routing
+## Step 7 — Configure Cloudflare Email Routing
 
 Email Routing is the Cloudflare feature that intercepts inbound mail for your domain and hands it to a Worker.
 
@@ -181,7 +230,7 @@ Email Routing is the Cloudflare feature that intercepts inbound mail for your do
 
 ---
 
-## Step 7 — Build and deploy the dashboard
+## Step 8 — Build and deploy the dashboard
 
 From the repository root:
 
@@ -199,7 +248,7 @@ Subsequent deploys update the same project in-place.
 
 ---
 
-## Step 8 — Set a login password (optional but recommended)
+## Step 9 — Set a login password (optional but recommended)
 
 Without a password the dashboard is publicly accessible to anyone who knows the URL. Set a Pages secret to enable password authentication:
 
@@ -210,11 +259,11 @@ wrangler pages secret put AUTH_PASSWORD
 
 When `AUTH_PASSWORD` is set, the dashboard shows a login form. Sessions are HMAC-signed cookies; there is no server-side session store.
 
-Skip this step if you plan to use Cloudflare Access (Zero Trust) instead — see Step 9.
+Skip this step if you plan to use Cloudflare Access (Zero Trust) instead — see Step 10.
 
 ---
 
-## Step 9 — Protect with Cloudflare Access (optional alternative to password)
+## Step 10 — Protect with Cloudflare Access (optional alternative to password)
 
 Cloudflare Access is an SSO layer that restricts who can open the dashboard URL, without requiring a password inside the app.
 
@@ -260,7 +309,7 @@ headers above, and set the request body to JSON.
 
 ---
 
-## Step 10 — Add a custom domain to the Pages project (optional)
+## Step 11 — Add a custom domain to the Pages project (optional)
 
 By default the dashboard is reachable at a `*.pages.dev` URL. To use a vanity URL:
 
@@ -271,7 +320,7 @@ By default the dashboard is reachable at a `*.pages.dev` URL. To use a vanity UR
 
 ---
 
-## Step 11 — Complete onboarding in the dashboard
+## Step 12 — Complete onboarding in the dashboard
 
 Open the dashboard URL in a browser. The onboarding wizard guides you through:
 
@@ -290,6 +339,7 @@ After onboarding, you can add more domains via the sidebar **+** button.
 | `AUTH_PASSWORD` | Pages secret (`wrangler pages secret put`) | No | Enables dashboard password login. Omit to skip password auth. |
 | `API_TOKEN` | Pages secret (`wrangler pages secret put`) | No | Bearer token for automation (e.g. Apple Shortcuts). Authorizes `/api/` routes only. |
 | `KV` | `wrangler.toml` binding | Yes | KV namespace shared between the dashboard and the email worker. |
+| `DB` | `wrangler.toml` binding | No | D1 database holding the activity log, shared between the dashboard and the email worker. Omit it to keep the log in KV. |
 | `DEMO_MODE` | Pages variable | No | Set to `1` to enable read-only demo mode with seed data (no real KV writes). |
 
 ---
@@ -304,10 +354,54 @@ The following keys are stored in the shared KV namespace:
 | `alias:{domain}/{localPart}` | `AliasConfig` JSON | Individual alias config (enabled, target override, counts, expiry, tags) |
 | `destination:{email}` | `DestinationAddress` JSON | Verified destination email addresses |
 | `tag:{name}` | `Tag` JSON | Tag metadata (name, hex color) |
-| `log:{domain}/{localPart}` | `LogEntry[]` JSON | Per-alias activity log, ring buffer of last 50 entries |
+| `log:{domain}/{localPart}` | `LogEntry[]` JSON | **Legacy.** Per-alias activity log, ring buffer of last 50 entries. Written only when no `DB` binding is configured; still read either way, so an account that predates D1 keeps its history |
 | `settings:onboarded` | `"1"` | Set after the onboarding wizard is completed |
 
 You can inspect and edit values directly in **Cloudflare dashboard → Workers & Pages → KV → mailpal**.
+
+---
+
+## D1 data schema reference
+
+With a `DB` binding configured, the activity log lives in one table instead
+(`migrations/0001_create_activity.sql`):
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER | Autoincrementing key; also breaks ties between entries written in the same millisecond |
+| `domain`, `local_part` | TEXT | The alias this entry belongs to. `recipient` is not stored — it is always `local_part@domain` |
+| `at` | INTEGER | Unix milliseconds |
+| `action` | TEXT | `forwarded` or `blocked` |
+| `from_addr`, `to_addr` | TEXT | Envelope sender, and the destination it went to (or would have) |
+| `reason`, `matched_rule` | TEXT | Why a message was blocked, and which sender rule matched |
+| `subject`, `header_from`, `cc` | TEXT | Display metadata; `cc` is a JSON array |
+
+Unlike the KV ring buffer this keeps full history rather than the last 50
+entries per alias. Backups still export the most recent 50 per alias, so an
+export stays a fixed size.
+
+```bash
+# Inspect it from the command line
+wrangler d1 execute mailpal --remote --command "SELECT COUNT(*) FROM activity"
+```
+
+---
+
+## Moving an existing activity log into D1
+
+Nothing is lost by adding the `DB` binding to an account that has been running
+on KV — every read merges both stores, so old entries stay visible. To retire
+the leftover `log:` keys (they otherwise sit in every backup and cost a KV list
+on each activity page load), call the migration route until it stops answering
+`202`:
+
+```bash
+curl -X POST https://your-dashboard.pages.dev/api/settings/activity/migrate \
+  -H "Authorization: Bearer $API_TOKEN"
+```
+
+Each call moves up to 100 aliases and reports `{ migrated, aliases, complete }`.
+Exporting a backup and re-importing it does the same thing.
 
 ---
 
@@ -321,8 +415,12 @@ When an email arrives at `localPart@domain`:
 4. If the alias exists:
    - Checks `enabled`, `expiresAt`, and `maxForwards` — rejects if any limit is breached
    - Forwards to `targetEmail` (alias-level override) or falls back to `domainConfig.targetEmail`
-5. Appends a `forwarded` or `blocked` log entry to `log:{domain}/{localPart}` (capped at 50 entries)
-6. Increments `forwardedCount` or `blockedCount` and updates `lastUsedAt` on the alias record
+5. Increments `forwardedCount` or `blockedCount` and updates `lastUsedAt` on the alias record — one KV write
+6. Records a `forwarded` or `blocked` entry: an insert into the D1 `activity` table, or an append to the
+   `log:{domain}/{localPart}` ring buffer when no `DB` binding is configured — a second KV write
+
+Steps 5 and 6 run as background work after the message has been forwarded, so a
+failure to record it never costs the recipient their mail.
 
 ---
 
