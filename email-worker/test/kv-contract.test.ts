@@ -5,16 +5,19 @@ import {
 	getAlias,
 	getDomain,
 	getLog,
+	getLogs,
 	listAliases,
 	listDestinations,
 	listDomains,
 	listTags,
+	logKey,
 	putAlias,
 	putDestination,
 	putDomain,
 	putGlobalSenderBlocklist,
 	putTag
 } from '../../src/lib/kv.js';
+import { KV_BULK_GET_LIMIT } from '../../src/lib/kv-batch.js';
 import { appendLog } from '../src/index.js';
 import { MemoryKV, asKV, makeAlias, makeDomain, readAlias, runEmail } from './helpers.js';
 
@@ -32,6 +35,10 @@ beforeEach(() => {
 describe('KV key formats match the worker', () => {
 	it('uses the exact alias key the worker reads', () => {
 		expect(aliasKey('aliases.example.com', 'orders')).toBe('alias:aliases.example.com/orders');
+	});
+
+	it('uses the exact log key the worker writes', () => {
+		expect(logKey('aliases.example.com', 'orders')).toBe('log:aliases.example.com/orders');
 	});
 
 	it('writes the domain under the worker key', async () => {
@@ -91,6 +98,15 @@ describe('KV key formats match the worker', () => {
 		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
 		expect(log).toHaveLength(1);
 		expect(log[0].subject).toBe(42 as unknown as string);
+	});
+
+	it('ignores malformed and non-array historical logs', async () => {
+		const kv = new MemoryKV();
+		kv.store.set(logKey('aliases.example.com', 'broken'), '{');
+		kv.store.set(logKey('aliases.example.com', 'object'), JSON.stringify({ at: 1 }));
+
+		expect(await getLog(asKV(kv), 'aliases.example.com', 'broken')).toEqual([]);
+		expect(await getLog(asKV(kv), 'aliases.example.com', 'object')).toEqual([]);
 	});
 });
 
@@ -164,6 +180,56 @@ describe('dashboard round-trips through KV', () => {
 		const listed = await listAliases(asKV(kv), 'a.example.com');
 		expect(listed).toHaveLength(1);
 		expect(listed[0].localPart).toBe('one');
+	});
+
+	it('lists aliases with bulk reads capped at the KV bulk-get limit', async () => {
+		const kv = new MemoryKV();
+		for (let i = 0; i < 205; i++) {
+			const alias = makeAlias({ localPart: `alias-${i}` });
+			kv.store.set(aliasKey(alias.domain, alias.localPart), JSON.stringify(alias));
+		}
+
+		expect(await listAliases(asKV(kv), 'aliases.example.com')).toHaveLength(205);
+		expect(kv.getCalls.filter(Array.isArray).map((keys) => keys.length)).toEqual([
+			KV_BULK_GET_LIMIT,
+			KV_BULK_GET_LIMIT,
+			205 - 2 * KV_BULK_GET_LIMIT
+		]);
+		expect(kv.getCalls.some((key) => typeof key === 'string')).toBe(false);
+	});
+
+	it('follows list cursors beyond the first 1,000 keys', async () => {
+		const kv = new MemoryKV();
+		for (let i = 0; i < 1_005; i++) {
+			const alias = makeAlias({ localPart: `alias-${i}` });
+			kv.store.set(aliasKey(alias.domain, alias.localPart), JSON.stringify(alias));
+		}
+
+		const listed = await listAliases(asKV(kv), 'aliases.example.com');
+		expect(listed).toHaveLength(1_005);
+		expect(new Set(listed.map((alias) => alias.localPart)).size).toBe(1_005);
+	});
+
+	it('bulk-reads logs in batches and preserves alias order', async () => {
+		const kv = new MemoryKV();
+		const aliases = Array.from({ length: 101 }, (_, index) =>
+			makeAlias({ localPart: `alias-${(index * 37) % 101}` })
+		);
+		for (const alias of aliases) {
+			const sequence = Number(alias.localPart.slice('alias-'.length));
+			kv.store.set(
+				logKey(alias.domain, alias.localPart),
+				JSON.stringify([{ at: sequence, action: 'forwarded', from: 'sender@example.com' }])
+			);
+		}
+
+		kv.resetGetCalls();
+		const logs = await getLogs(asKV(kv), aliases);
+		expect(logs).toHaveLength(101);
+		expect(logs.map((log) => log[0].at)).toEqual(
+			aliases.map((alias) => Number(alias.localPart.slice('alias-'.length)))
+		);
+		expect(kv.getCalls.filter(Array.isArray).map((keys) => keys.length)).toEqual([100, 1]);
 	});
 
 	it('round-trips destinations and tags', async () => {

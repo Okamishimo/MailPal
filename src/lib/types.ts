@@ -16,6 +16,13 @@ export interface Tag {
 	name: string;
 	color: string; // hex, e.g. "#3b82f6"
 	createdAt: number;
+	/**
+	 * Set while a multi-request delete cascade is stripping this tag from
+	 * aliases. The tag stays listed as a retry handle, but must not be offered
+	 * for assignment: an alias tagged mid-cascade can sort before the persisted
+	 * cursor and would never be revisited.
+	 */
+	pendingDelete?: boolean;
 }
 
 export type SenderMode = 'normal' | 'allowlist';

@@ -4,6 +4,7 @@
 	import ColorPicker from './ColorPicker.svelte';
 	import BackupSection from './BackupSection.svelte';
   import { randomSwatchColor, SWATCHES } from '$lib/constants';
+	import { pollCascadeDelete } from '$lib/cascade-delete.js';
 
 	let {
 		open,
@@ -47,6 +48,22 @@
 	let showTagForm = $state(false);
 	let showDestinationForm = $state(false);
 	let deletingTag = $state<string | null>(null);
+	// Kept separate from addTagError, which only renders inside the add-tag form.
+	let deleteTagError = $state('');
+	let deleteController: AbortController | null = null;
+
+	function abortTagDelete() {
+		deleteController?.abort();
+		deleteController = null;
+		deletingTag = null;
+	}
+
+	// Abandon an in-flight cascade when the dialog closes or unmounts: a late
+	// response must not fire onTagDeleted after the user has moved on.
+	$effect(() => {
+		if (!open) abortTagDelete();
+		return abortTagDelete;
+	});
 
 	// Global sender blocklist form state
 	let globalBlockedAddresses = $state('');
@@ -172,12 +189,27 @@
 		const confirmDelete = confirm(`確定要刪除標籤「${name}」嗎？所有地址上的這個標籤都會一併移除。`);
 		if (!confirmDelete) return;
 
+		abortTagDelete();
+		const controller = new AbortController();
+		deleteController = controller;
 		deletingTag = name;
+		deleteTagError = '';
 		try {
-			await fetch('/api/tags/' + encodeURIComponent(name), { method: 'DELETE' });
-			onTagDeleted(name);
+			const result = await pollCascadeDelete('/api/tags/' + encodeURIComponent(name), {
+				signal: controller.signal,
+				failureMessage: '刪除標籤失敗'
+			});
+			if (result.ok) onTagDeleted(name);
+			else deleteTagError = result.error;
+		} catch {
+			if (!controller.signal.aborted) deleteTagError = '網路連線錯誤，請重試以繼續清理';
 		} finally {
-			deletingTag = null;
+			// Only the current run may clear the busy state — an abandoned one
+			// unwinding late must not stop a delete the user has since restarted.
+			if (deleteController === controller) {
+				deleteController = null;
+				deletingTag = null;
+			}
 		}
 	}
 
@@ -388,10 +420,13 @@
 					<li class="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-app-hover border border-app-border">
 						<ColorPicker bind:value={tag.color} size={3} onChange={(value) => { if (value) handleUpdateTag({ ...tag, color: value }); }} />
 						<span class="flex-1 text-sm text-app-text">{tag.name}</span>
+						{#if tag.pendingDelete}
+							<span class="text-xs text-app-muted shrink-0">清理中…</span>
+						{/if}
 						<button
 							onclick={() => handleDeleteTag(tag.name)}
-							disabled={deletingTag === tag.name}
-							aria-label="刪除標籤 {tag.name}"
+							disabled={deletingTag !== null}
+							aria-label={tag.pendingDelete ? `繼續清理標籤 ${tag.name}` : `刪除標籤 ${tag.name}`}
 							class="p-1 text-app-muted/60 hover:text-red-400 rounded transition-colors disabled:opacity-40 shrink-0"
 						>
 							<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -405,6 +440,10 @@
 			<p class="text-sm text-app-muted text-center py-4 rounded-lg border border-dashed border-app-border">
 				尚未新增標籤
 			</p>
+		{/if}
+
+		{#if deleteTagError}
+			<p role="alert" class="text-xs text-red-400">{deleteTagError}</p>
 		{/if}
 
 		{#if showTagForm}

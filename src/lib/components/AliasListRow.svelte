@@ -117,6 +117,12 @@
 			.filter((t): t is Tag => t !== undefined)
 	);
 
+	// A tag being cascade-deleted stays listed in settings as a retry handle, but
+	// assigning it now would leave a reference to a tag that is about to vanish.
+	const assignableTags = $derived(
+		tags.filter((t) => !t.pendingDelete || (alias.tags ?? []).includes(t.name))
+	);
+
 	const expiryBadge = $derived.by((): { label: string; urgency: 'normal' | 'warn' | 'critical' } | null => {
 		if (alias.expiresAt) {
 			const now = Date.now();
@@ -619,7 +625,7 @@
 					<div class="space-y-1.5">
 						<p class="text-xs font-medium text-app-muted">標籤</p>
 						<div class="flex flex-wrap gap-1.5">
-							{#each tags as tag (tag.name)}
+							{#each assignableTags as tag (tag.name)}
 								{@const active = editTags.includes(tag.name)}
 								<button
 									type="button"

@@ -20,28 +20,50 @@ import { handleEmail } from '../src/index.js';
  */
 export class MemoryKV {
 	store = new Map<string, string>();
+	getCalls: Array<string | string[]> = [];
+	listCalls: Array<{ prefix?: string; cursor?: string; limit?: number }> = [];
+	mutationCalls: Array<{ operation: 'put' | 'delete'; key: string }> = [];
 
-	async get(key: string): Promise<string | null> {
-		return this.store.get(key) ?? null;
+	async get(key: string): Promise<string | null>;
+	async get(keys: string[]): Promise<Map<string, string | null>>;
+	async get(keyOrKeys: string | string[]): Promise<string | null | Map<string, string | null>> {
+		this.getCalls.push(keyOrKeys);
+		if (Array.isArray(keyOrKeys)) {
+			const responseKeys = [...keyOrKeys].sort();
+			return new Map(responseKeys.map((key) => [key, this.store.get(key) ?? null]));
+		}
+		return this.store.get(keyOrKeys) ?? null;
+	}
+
+	resetGetCalls(): void {
+		this.getCalls = [];
 	}
 
 	async put(key: string, value: string): Promise<void> {
+		this.mutationCalls.push({ operation: 'put', key });
 		this.store.set(key, value);
 	}
 
 	async delete(key: string): Promise<void> {
+		this.mutationCalls.push({ operation: 'delete', key });
 		this.store.delete(key);
 	}
 
-	async list({ prefix }: { prefix?: string } = {}): Promise<{
-		keys: { name: string }[];
-		list_complete: boolean;
-	}> {
-		const keys = [...this.store.keys()]
+	async list({ prefix, cursor, limit }: { prefix?: string; cursor?: string; limit?: number } = {}): Promise<
+		| { keys: { name: string }[]; list_complete: false; cursor: string }
+		| { keys: { name: string }[]; list_complete: true }
+	> {
+		this.listCalls.push({ prefix, cursor, limit });
+		const all = [...this.store.keys()]
 			.filter((name) => !prefix || name.startsWith(prefix))
-			.sort()
-			.map((name) => ({ name }));
-		return { keys, list_complete: true };
+			.sort();
+		const start = cursor ? Number(cursor) : 0;
+		const page = all.slice(start, start + (limit ?? 1000));
+		const end = start + page.length;
+		const keys = page.map((name) => ({ name }));
+		return end < all.length
+			? { keys, list_complete: false, cursor: String(end) }
+			: { keys, list_complete: true };
 	}
 }
 

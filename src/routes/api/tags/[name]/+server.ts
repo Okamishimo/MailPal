@@ -1,15 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { deleteTag, listAliases, listDomains, putAlias, putTag } from '$lib/kv.js';
+import { getTag, putTag } from '$lib/kv.js';
+import { deleteTagCascade } from '$lib/server/tag-cascade.js';
 import type { Tag } from '$lib/types.js';
 
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
-	const existing = await locals.kv.get(`tag:${params.name}`);
-	if (!existing) return json({ error: '找不到標籤' }, { status: 404 });
+	const tag = await getTag(locals.kv, params.name);
+	if (!tag) return json({ error: '找不到標籤' }, { status: 404 });
 
-	const tag = JSON.parse(existing) as Tag;
 	const body = await request.json().catch(() => ({}));
 	const { color } = body as { color?: string };
 
@@ -23,18 +23,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	const existing = await locals.kv.get(`tag:${params.name}`);
-	if (!existing) return json({ error: '找不到標籤' }, { status: 404 });
+	const result = await deleteTagCascade(locals.kv, params.name);
+	if (!result.found) {
+		return json({ error: '找不到標籤' }, { status: 404 });
+	}
 
-	await deleteTag(locals.kv, params.name);
-
-	// Remove tag from all aliases
-	const domains = await listDomains(locals.kv);
-	const allAliases = (await Promise.all(domains.map((d) => listAliases(locals.kv, d.domain)))).flat();
-	const affected = allAliases.filter((a) => a.tags?.includes(params.name));
-	await Promise.all(
-		affected.map((a) => putAlias(locals.kv, { ...a, tags: a.tags!.filter((t) => t !== params.name) }))
-	);
-
-	return new Response(null, { status: 204 });
+	return !result.complete
+		? json({ pending: true }, { status: 202 })
+		: new Response(null, { status: 204 });
 };

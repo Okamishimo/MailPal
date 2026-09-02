@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { listDomains, listAliases, getLog } from '$lib/kv.js';
+import { listDomains, listAliases, getLogs } from '$lib/kv.js';
 import type { LogEntry } from '$lib/types.js';
 
 export interface ActivityEntry extends LogEntry {
@@ -11,11 +11,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const domains = await listDomains(locals.kv);
 	const allAliases = (await Promise.all(domains.map((d) => listAliases(locals.kv, d.domain)))).flat();
 
-	const buckets = await Promise.all(
-		allAliases.map(async (a) => {
-			const log = await getLog(locals.kv, a.domain, a.localPart);
-			return log.map((e): ActivityEntry => ({ ...e, localPart: a.localPart, domain: a.domain }));
-		})
+	const logs = await getLogs(locals.kv, allAliases);
+	const buckets = allAliases.map((alias, index) =>
+		logs[index].map((entry): ActivityEntry => ({
+			...entry,
+			localPart: alias.localPart,
+			domain: alias.domain
+		}))
 	);
 
 	const entries = buckets.flat().sort((a, b) => b.at - a.at).slice(0, 200);

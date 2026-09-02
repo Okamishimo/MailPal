@@ -14,6 +14,8 @@ import {
 	normalizeEmailAddress,
 	validateGlobalSenderBlocklist
 } from '../sender-rules.js';
+import { getMany, listKeys, runInBatches } from '../kv-batch.js';
+import { CASCADE_PREFIX } from '../kv.js';
 
 export const BACKUP_FORMAT = 'mailpal-backup' as const;
 export const BACKUP_VERSION = 1 as const;
@@ -258,41 +260,22 @@ async function checksumEntries(entries: BackupEntry[]): Promise<string> {
 	return `sha256:${await sha256(JSON.stringify(entries))}`;
 }
 
-async function listPrefixKeys(kv: KVNamespace, prefix: string): Promise<string[]> {
-	const names: string[] = [];
-	let cursor: string | undefined;
-	do {
-		const page = await kv.list({ prefix, ...(cursor ? { cursor } : {}) });
-		names.push(...page.keys.map((key) => key.name));
-		if (page.list_complete !== false || !page.cursor) break;
-		cursor = page.cursor;
-	} while (cursor);
-	return names;
-}
-
 export async function listManagedKeys(kv: KVNamespace): Promise<string[]> {
-	const prefixGroups = await Promise.all(MANAGED_PREFIXES.map((prefix) => listPrefixKeys(kv, prefix)));
+	const prefixGroups = await Promise.all(MANAGED_PREFIXES.map((prefix) => listKeys(kv, prefix)));
 	const names = new Set(prefixGroups.flat());
-	const settings = await Promise.all(
-		MANAGED_SETTINGS_KEYS.map(async (key) => ({ key, value: await kv.get(key) }))
-	);
-	for (const setting of settings) {
-		if (setting.value !== null) names.add(setting.key);
+	const settings = await getMany(kv, [...MANAGED_SETTINGS_KEYS]);
+	for (const key of MANAGED_SETTINGS_KEYS) {
+		if (settings.get(key) != null) names.add(key);
 	}
 	return [...names].sort();
 }
 
 async function readEntries(kv: KVNamespace, keys: string[]): Promise<BackupEntry[]> {
-	const entries: BackupEntry[] = [];
-	for (let index = 0; index < keys.length; index += 50) {
-		const batch = keys.slice(index, index + 50);
-		const values = await Promise.all(batch.map((key) => kv.get(key)));
-		for (let itemIndex = 0; itemIndex < batch.length; itemIndex++) {
-			const value = values[itemIndex];
-			if (value !== null) entries.push({ key: batch[itemIndex], value });
-		}
-	}
-	return entries;
+	const values = await getMany(kv, keys);
+	return keys.flatMap((key) => {
+		const value = values.get(key);
+		return value == null ? [] : [{ key, value }];
+	});
 }
 
 export async function createBackup(kv: KVNamespace): Promise<MailPalBackup> {
@@ -356,18 +339,18 @@ export async function validateBackup(input: unknown): Promise<BackupValidationRe
 	};
 }
 
-async function runInBatches<T>(items: T[], operation: (item: T) => Promise<void>): Promise<void> {
-	for (let index = 0; index < items.length; index += 25) {
-		await Promise.all(items.slice(index, index + 25).map(operation));
-	}
-}
-
 export async function restoreBackup(
 	kv: KVNamespace,
 	backup: MailPalBackup,
 	mode: BackupImportMode
 ): Promise<RestoreSummary> {
-	const currentKeys = mode === 'replace' ? await listManagedKeys(kv) : [];
+	// Cascade markers are transient resume state, so they are never exported —
+	// but a replace-mode restore swaps the dataset underneath them, which would
+	// leave a stale cursor pointing into aliases that no longer exist.
+	const currentKeys =
+		mode === 'replace'
+			? [...(await listManagedKeys(kv)), ...(await listKeys(kv, CASCADE_PREFIX))]
+			: [];
 	await runInBatches(backup.entries, (entry) => kv.put(entry.key, entry.value));
 
 	const importedKeys = new Set(backup.entries.map((entry) => entry.key));

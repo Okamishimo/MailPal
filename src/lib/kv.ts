@@ -7,43 +7,92 @@ import type {
 	LogEntry,
 	Tag
 } from './types.js';
+import { getMany, listKeys } from './kv-batch.js';
 import { normalizeGlobalSenderBlocklist, sanitizeSubject } from './sender-rules.js';
 
 const GLOBAL_SENDER_BLOCKLIST_KEY = 'settings:sender-blocklist';
 
+export const DOMAIN_PREFIX = 'domain:';
+export const ALIAS_PREFIX = 'alias:';
+export const LOG_PREFIX = 'log:';
+export const TAG_PREFIX = 'tag:';
+/** Transient resume state for multi-request cascade deletes; never exported in backups. */
+export const CASCADE_PREFIX = 'cascade:';
+
+async function listJsonValues<T>(kv: KVNamespace, prefix: string): Promise<T[]> {
+	const keys = await listKeys(kv, prefix);
+	const values = await getMany(kv, keys);
+	return keys.flatMap((key) => {
+		const value = values.get(key);
+		if (!value) return [];
+		try {
+			const parsed = JSON.parse(value) as T | null;
+			return parsed === null ? [] : [parsed];
+		} catch {
+			// Match the email worker: one malformed record must not take down a
+			// whole page — that would hide the very UI needed to repair it.
+			return [];
+		}
+	});
+}
+
+function parseLog(value: string | null | undefined): LogEntry[] {
+	let log: LogEntry[] = [];
+	try {
+		const parsed: unknown = value ? JSON.parse(value) : [];
+		if (Array.isArray(parsed)) log = parsed as LogEntry[];
+	} catch {
+		// Match the email worker: malformed historical logs must not break a page.
+	}
+	// Entries written before subjects were decoded still hold RFC 2047
+	// encoded-words, cut off at 200 characters of encoded text; decoding on read
+	// keeps that history readable until the ring buffer ages those entries out.
+	return log.map((entry) =>
+		typeof entry.subject === 'string'
+			? { ...entry, subject: sanitizeSubject(entry.subject, { recoverTruncated: true }) }
+			: entry
+	);
+}
+
 // ─── Domain helpers ───────────────────────────────────────────────────────────
+
+export function domainKey(domain: string): string {
+	return `${DOMAIN_PREFIX}${domain}`;
+}
 
 export async function getDomain(
 	kv: KVNamespace,
 	domain: string
 ): Promise<DomainConfig | null> {
-	const val = await kv.get(`domain:${domain}`);
+	const val = await kv.get(domainKey(domain));
 	return val ? (JSON.parse(val) as DomainConfig) : null;
 }
 
 export async function putDomain(kv: KVNamespace, config: DomainConfig): Promise<void> {
-	await kv.put(`domain:${config.domain}`, JSON.stringify(config));
+	await kv.put(domainKey(config.domain), JSON.stringify(config));
 }
 
 export async function deleteDomain(kv: KVNamespace, domain: string): Promise<void> {
-	await kv.delete(`domain:${domain}`);
+	await kv.delete(domainKey(domain));
 }
 
 export async function listDomains(kv: KVNamespace): Promise<DomainConfig[]> {
-	const list = await kv.list({ prefix: 'domain:' });
-	const configs = await Promise.all(
-		list.keys.map(async (k) => {
-			const val = await kv.get(k.name);
-			return val ? (JSON.parse(val) as DomainConfig) : null;
-		})
-	);
-	return configs.filter((c): c is DomainConfig => c !== null);
+	return listJsonValues<DomainConfig>(kv, DOMAIN_PREFIX);
 }
 
 // ─── Alias helpers ────────────────────────────────────────────────────────────
 
 export function aliasKey(domain: string, localPart: string): string {
-	return `alias:${domain}/${localPart}`;
+	return `${ALIAS_PREFIX}${domain}/${localPart}`;
+}
+
+/** Prefix matching every alias of one domain — `aliasKey` with an empty local part. */
+export function aliasPrefix(domain: string): string {
+	return aliasKey(domain, '');
+}
+
+export function logKey(domain: string, localPart: string): string {
+	return `${LOG_PREFIX}${domain}/${localPart}`;
 }
 
 export async function getAlias(
@@ -68,27 +117,13 @@ export async function deleteAlias(
 }
 
 export async function listAliases(kv: KVNamespace, domain: string): Promise<AliasConfig[]> {
-	const list = await kv.list({ prefix: `alias:${domain}/` });
-	const configs = await Promise.all(
-		list.keys.map(async (k) => {
-			const val = await kv.get(k.name);
-			return val ? (JSON.parse(val) as AliasConfig) : null;
-		})
-	);
-	return configs.filter((c): c is AliasConfig => c !== null);
+	return listJsonValues<AliasConfig>(kv, aliasPrefix(domain));
 }
 
 // ─── Destination address helpers ──────────────────────────────────────────────
 
 export async function listDestinations(kv: KVNamespace): Promise<DestinationAddress[]> {
-	const list = await kv.list({ prefix: 'destination:' });
-	const configs = await Promise.all(
-		list.keys.map(async (k) => {
-			const val = await kv.get(k.name);
-			return val ? (JSON.parse(val) as DestinationAddress) : null;
-		})
-	);
-	return configs.filter((c): c is DestinationAddress => c !== null);
+	return listJsonValues<DestinationAddress>(kv, 'destination:');
 }
 
 export async function putDestination(kv: KVNamespace, dest: DestinationAddress): Promise<void> {
@@ -106,20 +141,22 @@ export async function getLog(
 	domain: string,
 	localPart: string
 ): Promise<LogEntry[]> {
-	const val = await kv.get(`log:${domain}/${localPart}`);
-	const log = val ? (JSON.parse(val) as LogEntry[]) : [];
-	// Entries written before subjects were decoded still hold RFC 2047
-	// encoded-words, cut off at 200 characters of encoded text; decoding on read
-	// keeps that history readable until the ring buffer ages those entries out.
-	return log.map((entry) =>
-		typeof entry.subject === 'string'
-			? { ...entry, subject: sanitizeSubject(entry.subject, { recoverTruncated: true }) }
-			: entry
-	);
+	const val = await kv.get(logKey(domain, localPart));
+	return parseLog(val);
+}
+
+/** Read all requested alias logs in bulk, preserving the input order. */
+export async function getLogs(
+	kv: KVNamespace,
+	aliases: Array<{ domain: string; localPart: string }>
+): Promise<LogEntry[][]> {
+	const keys = aliases.map((alias) => logKey(alias.domain, alias.localPart));
+	const values = await getMany(kv, keys);
+	return keys.map((key) => parseLog(values.get(key)));
 }
 
 export async function deleteLog(kv: KVNamespace, domain: string, localPart: string): Promise<void> {
-	await kv.delete(`log:${domain}/${localPart}`);
+	await kv.delete(logKey(domain, localPart));
 }
 
 // ─── Sender filtering settings ───────────────────────────────────────────────
@@ -143,21 +180,34 @@ export async function putGlobalSenderBlocklist(
 
 // ─── Tag helpers ──────────────────────────────────────────────────────────────
 
+export function tagKey(name: string): string {
+	return `${TAG_PREFIX}${name}`;
+}
+
 export async function listTags(kv: KVNamespace): Promise<Tag[]> {
-	const list = await kv.list({ prefix: 'tag:' });
-	const configs = await Promise.all(
-		list.keys.map(async (k) => {
-			const val = await kv.get(k.name);
-			return val ? (JSON.parse(val) as Tag) : null;
-		})
-	);
-	return configs.filter((c): c is Tag => c !== null);
+	return listJsonValues<Tag>(kv, TAG_PREFIX);
+}
+
+export async function getTag(kv: KVNamespace, name: string): Promise<Tag | null> {
+	const val = await kv.get(tagKey(name));
+	return parseTag(val);
+}
+
+/** Tolerate a malformed tag record the same way the alias and log readers do. */
+export function parseTag(value: string | null): Tag | null {
+	if (!value) return null;
+	try {
+		const parsed = JSON.parse(value) as Tag | null;
+		return parsed && typeof parsed.name === 'string' ? parsed : null;
+	} catch {
+		return null;
+	}
 }
 
 export async function putTag(kv: KVNamespace, tag: Tag): Promise<void> {
-	await kv.put(`tag:${tag.name}`, JSON.stringify(tag));
+	await kv.put(tagKey(tag.name), JSON.stringify(tag));
 }
 
 export async function deleteTag(kv: KVNamespace, name: string): Promise<void> {
-	await kv.delete(`tag:${name}`);
+	await kv.delete(tagKey(name));
 }

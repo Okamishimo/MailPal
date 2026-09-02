@@ -4,9 +4,13 @@ import { buildDemoKVData } from './demo-data.js';
 // All unused methods throw a clear error so accidental calls surface immediately.
 interface MinimalKVNamespace {
 	get(key: string): Promise<string | null>;
+	get(keys: string[]): Promise<Map<string, string | null>>;
 	put(key: string, value: string): Promise<void>;
 	delete(key: string): Promise<void>;
-	list(options: { prefix?: string }): Promise<{ keys: { name: string }[] }>;
+	list(options: { prefix?: string; cursor?: string; limit?: number }): Promise<
+		| { keys: { name: string }[]; list_complete: false; cursor: string }
+		| { keys: { name: string }[]; list_complete: true }
+	>;
 }
 
 /**
@@ -35,8 +39,13 @@ export class DemoKV implements MinimalKVNamespace {
 		}
 	}
 
-	async get(key: string): Promise<string | null> {
-		return this.store.get(key) ?? null;
+	async get(key: string): Promise<string | null>;
+	async get(keys: string[]): Promise<Map<string, string | null>>;
+	async get(keyOrKeys: string | string[]): Promise<string | null | Map<string, string | null>> {
+		if (Array.isArray(keyOrKeys)) {
+			return new Map(keyOrKeys.map((key) => [key, this.store.get(key) ?? null]));
+		}
+		return this.store.get(keyOrKeys) ?? null;
 	}
 
 	async put(key: string, value: string): Promise<void> {
@@ -49,12 +58,21 @@ export class DemoKV implements MinimalKVNamespace {
 		this.mutations.set(key, null);
 	}
 
-	async list(options: { prefix?: string } = {}): Promise<{ keys: { name: string }[] }> {
+	async list(options: { prefix?: string; cursor?: string; limit?: number } = {}): Promise<
+		| { keys: { name: string }[]; list_complete: false; cursor: string }
+		| { keys: { name: string }[]; list_complete: true }
+	> {
 		const prefix = options.prefix ?? '';
-		const keys = [...this.store.keys()]
+		const all = [...this.store.keys()]
 			.filter((k) => k.startsWith(prefix))
-			.map((name) => ({ name }));
-		return { keys };
+			.sort();
+		const start = options.cursor ? Number(options.cursor) : 0;
+		const page = all.slice(start, start + (options.limit ?? 1000));
+		const end = start + page.length;
+		const keys = page.map((name) => ({ name }));
+		return end < all.length
+			? { keys, list_complete: false, cursor: String(end) }
+			: { keys, list_complete: true };
 	}
 
 	/**

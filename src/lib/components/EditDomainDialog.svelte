@@ -4,6 +4,7 @@
 	import Dialog from './Dialog.svelte';
 	import DestinationSelect from './DestinationSelect.svelte';
 	import ColorPicker from './ColorPicker.svelte';
+	import { pollCascadeDelete } from '$lib/cascade-delete.js';
 
 	let {
 		open,
@@ -28,6 +29,20 @@
 	let saving = $state(false);
 	let deleting = $state(false);
 	let error = $state('');
+	let deleteController: AbortController | null = null;
+
+	function abortDelete() {
+		deleteController?.abort();
+		deleteController = null;
+		deleting = false;
+	}
+
+	// Abandon an in-flight cascade when the dialog closes or unmounts: a late
+	// response must not fire onDeleted after the user has moved on.
+	$effect(() => {
+		if (!open) abortDelete();
+		return abortDelete;
+	});
 
 	$effect(() => {
 		if (open) {
@@ -63,12 +78,27 @@
 	}
 
 	async function handleDelete() {
+		abortDelete();
+		const controller = new AbortController();
+		deleteController = controller;
 		deleting = true;
+		error = '';
 		try {
-			const res = await fetch(`/api/domains/${domain.domain}`, { method: 'DELETE' });
-			if (res.ok) onDeleted(domain.domain);
+			const result = await pollCascadeDelete(`/api/domains/${domain.domain}`, {
+				signal: controller.signal,
+				failureMessage: '刪除網域失敗'
+			});
+			if (result.ok) onDeleted(domain.domain);
+			else error = result.error;
+		} catch {
+			if (!controller.signal.aborted) error = '網路連線錯誤，請重試以繼續清理';
 		} finally {
-			deleting = false;
+			// Only the current run may clear the busy state — an abandoned one
+			// unwinding late must not stop a delete the user has since restarted.
+			if (deleteController === controller) {
+				deleteController = null;
+				deleting = false;
+			}
 		}
 	}
 </script>
@@ -184,7 +214,7 @@
 				</button>
 				<button
 					type="submit"
-					disabled={saving}
+					disabled={saving || deleting}
 					aria-busy={saving}
 					class="px-4 py-2 text-sm font-semibold bg-app-accent text-app-bg rounded-lg hover:brightness-110 transition-all disabled:opacity-40"
 				>

@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { deleteDomain, getDomain, listAliases, deleteAlias, putDomain } from '$lib/kv.js';
+import { getDomain, putDomain } from '$lib/kv.js';
+import { deleteDomainCascade } from '$lib/server/domain-cascade.js';
 
 const HEX_COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 
@@ -35,13 +36,12 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	const config = await getDomain(locals.kv, params.domain);
-	if (!config) return json({ error: '找不到網域' }, { status: 404 });
+	const result = await deleteDomainCascade(locals.kv, params.domain);
+	if (!result.found) {
+		return json({ error: '找不到網域' }, { status: 404 });
+	}
 
-	// Delete all aliases for this domain
-	const aliases = await listAliases(locals.kv, params.domain);
-	await Promise.all(aliases.map((a) => deleteAlias(locals.kv, a.domain, a.localPart)));
-
-	await deleteDomain(locals.kv, params.domain);
-	return new Response(null, { status: 204 });
+	return !result.complete
+		? json({ pending: true }, { status: 202 })
+		: new Response(null, { status: 204 });
 };
