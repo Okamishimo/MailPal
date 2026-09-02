@@ -1,8 +1,8 @@
 import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import type { LogEntry } from '../types.js';
-import { rowToLogEntry, type ActivityRow } from '../activity.js';
-import { getMany, listKeys } from '../kv-batch.js';
-import { LOG_PREFIX, deleteLog, parseLog } from '../kv.js';
+import { ACTIVITY_INSERT_SQL, activityInsertBindings, rowToLogEntry, type ActivityRow } from '../activity.js';
+import { chunk, getMany, listKeys } from '../kv-batch.js';
+import { LOG_PREFIX, deleteLog, logKey, parseLog } from '../kv.js';
 
 /**
  * Reads over the activity log.
@@ -179,4 +179,95 @@ export async function deleteDomainActivity(
 ): Promise<void> {
 	if (!db) return;
 	await runWrite(db, 'DELETE FROM activity WHERE domain = ?', [domain]);
+}
+
+// ─── Backup ───────────────────────────────────────────────────────────────────
+
+// D1 caps the statements one batch may carry, and a restore can hold an entry
+// for every alias, so inserts go out in fixed-size groups.
+const INSERT_BATCH_SIZE = 50;
+
+/**
+ * The newest entries per alias, keyed by `<domain>/<localPart>`.
+ *
+ * A backup keeps the same bounded slice per alias the KV ring buffer held. The
+ * backup's own limit counts entries, one per alias, so it would not stop an
+ * unbounded history from blowing past the 10 MB file cap on its own.
+ */
+export async function listActivityForBackup(
+	db: D1Database,
+	perAlias = ALIAS_ACTIVITY_LIMIT
+): Promise<Map<string, LogEntry[]>> {
+	const rows = await queryRows(
+		db,
+		`SELECT ${ROW_COLUMNS} FROM (
+			SELECT *, ROW_NUMBER() OVER (
+				PARTITION BY domain, local_part ORDER BY at DESC, id DESC
+			) AS row_rank FROM activity
+		) WHERE row_rank <= ?
+		ORDER BY domain, local_part, at DESC`,
+		[perAlias]
+	);
+
+	const grouped = new Map<string, LogEntry[]>();
+	for (const row of rows) {
+		const alias = `${row.domain}/${row.local_part}`;
+		const entries = grouped.get(alias);
+		if (entries) entries.push(rowToLogEntry(row));
+		else grouped.set(alias, [rowToLogEntry(row)]);
+	}
+	return grouped;
+}
+
+/**
+ * Overwrite one alias's activity with the entries from a backup.
+ *
+ * This mirrors what restoring a `log:` key used to do — a KV put replaced the
+ * whole ring buffer — so importing the same backup twice cannot duplicate
+ * anything. When D1 holds the data the legacy key is dropped as well, which is
+ * what makes a restore consolidate a pre-D1 account into one store.
+ */
+export async function replaceAliasActivity(
+	kv: KVNamespace,
+	db: D1Database | undefined,
+	domain: string,
+	localPart: string,
+	entries: LogEntry[]
+): Promise<void> {
+	if (!db) {
+		await kv.put(logKey(domain, localPart), JSON.stringify(entries));
+		return;
+	}
+
+	await runWrite(db, 'DELETE FROM activity WHERE domain = ? AND local_part = ?', [
+		domain,
+		localPart
+	]);
+
+	// Oldest first, so the autoincrementing id agrees with `at` and ties break
+	// the same way they would have if the entries had arrived as mail.
+	const ordered = [...entries].sort((a, b) => a.at - b.at);
+	for (const group of chunk(ordered, INSERT_BATCH_SIZE)) {
+		try {
+			await db.batch(
+				group.map((entry) =>
+					db.prepare(ACTIVITY_INSERT_SQL).bind(...activityInsertBindings(domain, localPart, entry))
+				)
+			);
+		} catch (error) {
+			console.error(JSON.stringify({
+				message: 'Activity restore failed for one batch',
+				alias: `${localPart}@${domain}`,
+				error: error instanceof Error ? error.message : String(error)
+			}));
+		}
+	}
+
+	await deleteLog(kv, domain, localPart);
+}
+
+/** Drop every activity row — the replace-mode restore's clean slate. */
+export async function clearAllActivity(db: D1Database | undefined): Promise<void> {
+	if (!db) return;
+	await runWrite(db, 'DELETE FROM activity', []);
 }
