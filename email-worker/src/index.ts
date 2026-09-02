@@ -18,6 +18,7 @@ import {
 	normalizeGlobalSenderBlocklist,
 	sanitizeSubject
 } from '../../src/lib/sender-rules.js';
+import { ACTIVITY_INSERT_SQL, activityInsertBindings } from '../../src/lib/activity.js';
 
 const LOG_LIMIT = 50;
 const GENERIC_REJECTION = 'Message rejected';
@@ -74,6 +75,27 @@ export async function appendLog(
 	await kv.put(key, JSON.stringify(log));
 }
 
+/**
+ * Persist one activity entry.
+ *
+ * D1 is a plain append, so recording a message costs one KV write (the alias
+ * counters) instead of two. The KV ring buffer stays as the fallback for
+ * deployments that have not bound `DB` yet — it works, it just spends a second
+ * KV write per message against the free plan's 1,000 a day.
+ */
+function writeActivity(
+	env: Env,
+	domain: string,
+	localPart: string,
+	entry: LogEntry
+): Promise<unknown> {
+	if (!env.DB) return appendLog(env.KV, domain, localPart, entry);
+	return env.DB
+		.prepare(ACTIVITY_INSERT_SQL)
+		.bind(...activityInsertBindings(domain, localPart, entry))
+		.run();
+}
+
 async function getGlobalSenderBlocklist(kv: KVNamespace): Promise<GlobalSenderBlocklist> {
 	const value = await kv.get('settings:sender-blocklist');
 	if (!value) return normalizeGlobalSenderBlocklist(null);
@@ -125,7 +147,7 @@ function blockMessage(
 		ctx,
 		Promise.all([
 			env.KV.put(`alias:${domain}/${localPart}`, JSON.stringify(updated)),
-			appendLog(env.KV, domain, localPart, entry)
+			writeActivity(env, domain, localPart, entry)
 		]),
 		`record_${options.reason}`
 	);
@@ -259,7 +281,7 @@ export async function handleEmail(
 			ctx,
 			Promise.all([
 				env.KV.put(aliasKey, JSON.stringify(updated)),
-				appendLog(env.KV, domain, localPart, entry)
+				writeActivity(env, domain, localPart, entry)
 			]),
 			'record_forwarded'
 		);
