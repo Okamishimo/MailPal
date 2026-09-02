@@ -271,3 +271,63 @@ export async function clearAllActivity(db: D1Database | undefined): Promise<void
 	if (!db) return;
 	await runWrite(db, 'DELETE FROM activity', []);
 }
+
+// ─── Migrating off the KV ring buffer ─────────────────────────────────────────
+
+/**
+ * Legacy keys moved per request.
+ *
+ * Each one costs a bulk read, a delete and an insert batch against D1, and a KV
+ * delete. The free plan allows 1,000 subrequests to Cloudflare services per
+ * invocation, so this stays well inside half the budget.
+ */
+export const MAX_ACTIVITY_MIGRATION_KEYS = 100;
+
+export interface ActivityMigrationResult {
+	/** Entries written to D1 by this call. */
+	migrated: number;
+	/** Aliases whose legacy key was cleared by this call. */
+	aliases: number;
+	complete: boolean;
+}
+
+/**
+ * Move one bounded page of legacy `log:` keys into D1.
+ *
+ * Reads already merge both stores, so this is never required — it just retires
+ * the leftover keys, which otherwise stay in every backup and cost a KV list on
+ * each activity page load. The caller repeats until `complete` comes back true;
+ * every page deletes the keys it moved, so a retry resumes on its own.
+ */
+export async function migrateLegacyActivity(
+	kv: KVNamespace,
+	db: D1Database
+): Promise<ActivityMigrationResult> {
+	const page = await kv.list({
+		prefix: LOG_PREFIX,
+		// The extra key tells us whether another bounded request is needed.
+		limit: MAX_ACTIVITY_MIGRATION_KEYS + 1
+	});
+	const keys = page.keys.slice(0, MAX_ACTIVITY_MIGRATION_KEYS).map((key) => key.name);
+	const complete = page.list_complete && page.keys.length <= MAX_ACTIVITY_MIGRATION_KEYS;
+	if (keys.length === 0) return { migrated: 0, aliases: 0, complete: true };
+
+	const values = await getMany(kv, keys);
+	let migrated = 0;
+	let aliases = 0;
+	for (const key of keys) {
+		const alias = splitLogKey(key);
+		if (!alias) {
+			// A key that does not name an alias has nowhere to go in D1, and
+			// leaving it would stall every later page behind it.
+			await kv.delete(key);
+			continue;
+		}
+		const entries = parseLog(values.get(key));
+		// replaceAliasActivity drops the KV key once the rows are in.
+		await replaceAliasActivity(kv, db, alias.domain, alias.localPart, entries);
+		migrated += entries.length;
+		aliases += 1;
+	}
+	return { migrated, aliases, complete };
+}

@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LogEntry } from '../../src/lib/types.js';
 import { ACTIVITY_INSERT_SQL, activityInsertBindings } from '../../src/lib/activity.js';
 import {
+	MAX_ACTIVITY_MIGRATION_KEYS,
 	deleteAliasActivity,
 	deleteDomainActivity,
 	listAliasActivity,
-	listRecentActivity
+	listRecentActivity,
+	migrateLegacyActivity
 } from '../../src/lib/server/activity.js';
 import { createBackup, restoreBackup, validateBackup } from '../../src/lib/server/backup.js';
 import { MemoryKV, asKV, makeAlias, makeDomain } from './helpers.js';
@@ -199,5 +201,52 @@ describe('backups with a database bound', () => {
 		await restoreBackup(asKV(new MemoryKV()), backup, 'replace', asD1Database(db));
 
 		expect(db.rows()).toEqual([]);
+	});
+});
+
+describe('migrating off the KV ring buffer', () => {
+	it('moves every legacy key into D1 and deletes it', async () => {
+		const kv = new MemoryKV();
+		kv.store.set(`log:${DOMAIN}/orders`, JSON.stringify([entry(200), entry(100)]));
+		kv.store.set(`log:${DOMAIN}/news`, JSON.stringify([entry(300)]));
+
+		const result = await migrateLegacyActivity(asKV(kv), asD1Database(db));
+
+		expect(result).toEqual({ migrated: 3, aliases: 2, complete: true });
+		expect([...kv.store.keys()].filter((key) => key.startsWith('log:'))).toEqual([]);
+		expect(db.rows()).toHaveLength(3);
+
+		const entries = await listRecentActivity(asKV(kv), asD1Database(db));
+		expect(entries.map((item) => item.at)).toEqual([300, 200, 100]);
+	});
+
+	it('reports nothing to do when no legacy keys remain', async () => {
+		const result = await migrateLegacyActivity(asKV(new MemoryKV()), asD1Database(db));
+		expect(result).toEqual({ migrated: 0, aliases: 0, complete: true });
+	});
+
+	it('pages through more keys than one call moves', async () => {
+		const kv = new MemoryKV();
+		for (let index = 0; index <= MAX_ACTIVITY_MIGRATION_KEYS; index += 1) {
+			kv.store.set(`log:${DOMAIN}/alias${index}`, JSON.stringify([entry(index + 1)]));
+		}
+
+		const first = await migrateLegacyActivity(asKV(kv), asD1Database(db));
+		expect(first.complete).toBe(false);
+		expect(first.aliases).toBe(MAX_ACTIVITY_MIGRATION_KEYS);
+
+		const second = await migrateLegacyActivity(asKV(kv), asD1Database(db));
+		expect(second).toEqual({ migrated: 1, aliases: 1, complete: true });
+		expect(db.rows()).toHaveLength(MAX_ACTIVITY_MIGRATION_KEYS + 1);
+	});
+
+	it('drops a key that does not name an alias instead of stalling on it', async () => {
+		const kv = new MemoryKV();
+		kv.store.set('log:no-slash', JSON.stringify([entry(100)]));
+
+		const result = await migrateLegacyActivity(asKV(kv), asD1Database(db));
+
+		expect(result).toEqual({ migrated: 0, aliases: 0, complete: true });
+		expect(kv.store.has('log:no-slash')).toBe(false);
 	});
 });
