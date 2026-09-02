@@ -4,8 +4,6 @@ import {
 	deleteAlias,
 	getAlias,
 	getDomain,
-	getLog,
-	getLogs,
 	listAliases,
 	listDestinations,
 	listDomains,
@@ -17,6 +15,7 @@ import {
 	putGlobalSenderBlocklist,
 	putTag
 } from '../../src/lib/kv.js';
+import { listAliasActivity, listRecentActivity } from '../../src/lib/server/activity.js';
 import { KV_BULK_GET_LIMIT } from '../../src/lib/kv-batch.js';
 import { appendLog } from '../src/index.js';
 import { MemoryKV, asKV, makeAlias, makeDomain, readAlias, runEmail } from './helpers.js';
@@ -64,7 +63,7 @@ describe('KV key formats match the worker', () => {
 			from: 'sender@example.com',
 			to: 'inbox@example.net'
 		});
-		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
+		const log = await listAliasActivity(asKV(kv), undefined, 'aliases.example.com', 'orders');
 		expect(log).toHaveLength(1);
 		expect(log[0].action).toBe('forwarded');
 	});
@@ -83,7 +82,7 @@ describe('KV key formats match the worker', () => {
 				}
 			])
 		);
-		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
+		const log = await listAliasActivity(asKV(kv), undefined, 'aliases.example.com', 'orders');
 		expect(log[0].subject).toBe('世界');
 	});
 
@@ -95,7 +94,7 @@ describe('KV key formats match the worker', () => {
 				{ at: 1, action: 'forwarded', from: 'sender@example.com', to: 'inbox@example.net', subject: 42 }
 			])
 		);
-		const log = await getLog(asKV(kv), 'aliases.example.com', 'orders');
+		const log = await listAliasActivity(asKV(kv), undefined, 'aliases.example.com', 'orders');
 		expect(log).toHaveLength(1);
 		expect(log[0].subject).toBe(42 as unknown as string);
 	});
@@ -105,8 +104,8 @@ describe('KV key formats match the worker', () => {
 		kv.store.set(logKey('aliases.example.com', 'broken'), '{');
 		kv.store.set(logKey('aliases.example.com', 'object'), JSON.stringify({ at: 1 }));
 
-		expect(await getLog(asKV(kv), 'aliases.example.com', 'broken')).toEqual([]);
-		expect(await getLog(asKV(kv), 'aliases.example.com', 'object')).toEqual([]);
+		expect(await listAliasActivity(asKV(kv), undefined, 'aliases.example.com', 'broken')).toEqual([]);
+		expect(await listAliasActivity(asKV(kv), undefined, 'aliases.example.com', 'object')).toEqual([]);
 	});
 });
 
@@ -210,7 +209,7 @@ describe('dashboard round-trips through KV', () => {
 		expect(new Set(listed.map((alias) => alias.localPart)).size).toBe(1_005);
 	});
 
-	it('bulk-reads logs in batches and preserves alias order', async () => {
+	it('bulk-reads leftover logs in batches and orders them by recency', async () => {
 		const kv = new MemoryKV();
 		const aliases = Array.from({ length: 101 }, (_, index) =>
 			makeAlias({ localPart: `alias-${(index * 37) % 101}` })
@@ -224,10 +223,12 @@ describe('dashboard round-trips through KV', () => {
 		}
 
 		kv.resetGetCalls();
-		const logs = await getLogs(asKV(kv), aliases);
-		expect(logs).toHaveLength(101);
-		expect(logs.map((log) => log[0].at)).toEqual(
-			aliases.map((alias) => Number(alias.localPart.slice('alias-'.length)))
+		const entries = await listRecentActivity(asKV(kv), undefined);
+		expect(entries).toHaveLength(101);
+		expect(entries.map((item) => item.at)).toEqual(
+			[...aliases.map((alias) => Number(alias.localPart.slice('alias-'.length)))].sort(
+				(a, b) => b - a
+			)
 		);
 		expect(kv.getCalls.filter(Array.isArray).map((keys) => keys.length)).toEqual([100, 1]);
 	});

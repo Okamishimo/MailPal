@@ -135,25 +135,10 @@ export async function deleteDestination(kv: KVNamespace, email: string): Promise
 }
 
 // ─── Activity log helpers ─────────────────────────────────────────────────────
-
-export async function getLog(
-	kv: KVNamespace,
-	domain: string,
-	localPart: string
-): Promise<LogEntry[]> {
-	const val = await kv.get(logKey(domain, localPart));
-	return parseLog(val);
-}
-
-/** Read all requested alias logs in bulk, preserving the input order. */
-export async function getLogs(
-	kv: KVNamespace,
-	aliases: Array<{ domain: string; localPart: string }>
-): Promise<LogEntry[][]> {
-	const keys = aliases.map((alias) => logKey(alias.domain, alias.localPart));
-	const values = await getMany(kv, keys);
-	return keys.map((key) => parseLog(values.get(key)));
-}
+//
+// Reading activity lives in `server/activity.ts`, which merges these legacy
+// `log:` keys with the D1 table. Only the key shape and the delete stay here,
+// since the domain cascade and the alias DELETE route both need them.
 
 export async function deleteLog(kv: KVNamespace, domain: string, localPart: string): Promise<void> {
 	await kv.delete(logKey(domain, localPart));
