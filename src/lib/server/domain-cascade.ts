@@ -1,6 +1,7 @@
-import type { KVNamespace } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import { runInBatches } from '../kv-batch.js';
 import { aliasPrefix, deleteDomain, getDomain, logKey, putDomain } from '../kv.js';
+import { deleteDomainActivity } from './activity.js';
 
 // Free-plan Workers allow 1,000 subrequests to Cloudflare services per
 // invocation, and every alias costs two deletes — the alias and its activity
@@ -19,7 +20,8 @@ export interface DomainCascadeResult {
  */
 export async function deleteDomainCascade(
 	kv: KVNamespace,
-	domain: string
+	domain: string,
+	db?: D1Database
 ): Promise<DomainCascadeResult> {
 	const prefix = aliasPrefix(domain);
 	const [config, page] = await Promise.all([
@@ -51,6 +53,11 @@ export async function deleteDomainCascade(
 		const localPart = key.slice(prefix.length);
 		await Promise.all([kv.delete(key), kv.delete(logKey(domain, localPart))]);
 	});
+
+	// One statement clears the whole domain's activity, so it runs on the final
+	// page rather than once per page. The KV ring buffer has no such shortcut —
+	// its keys are per alias, which is why they are deleted alongside each one.
+	if (complete) await deleteDomainActivity(db, domain);
 
 	if (complete && config) await deleteDomain(kv, domain);
 

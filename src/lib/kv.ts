@@ -36,7 +36,7 @@ async function listJsonValues<T>(kv: KVNamespace, prefix: string): Promise<T[]> 
 	});
 }
 
-function parseLog(value: string | null | undefined): LogEntry[] {
+export function parseLog(value: string | null | undefined): LogEntry[] {
 	let log: LogEntry[] = [];
 	try {
 		const parsed: unknown = value ? JSON.parse(value) : [];

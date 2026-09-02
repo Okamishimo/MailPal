@@ -36,7 +36,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
-	const result = await deleteDomainCascade(locals.kv, params.domain);
+	const result = await deleteDomainCascade(locals.kv, params.domain, locals.db);
 	if (!result.found) {
 		return json({ error: '找不到網域' }, { status: 404 });
 	}
