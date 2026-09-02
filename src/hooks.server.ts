@@ -80,6 +80,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	event.locals.kv = platform.env.KV;
+	// Optional: activity falls back to the legacy `log:` KV keys when unbound.
+	event.locals.db = platform.env.DB;
 
 	const authPassword = platform.env.AUTH_PASSWORD;
 	event.locals.authMode = authPassword ? 'password' : 'cloudflare-access';

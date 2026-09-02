@@ -14,3 +14,12 @@ enabled = true
 [[kv_namespaces]]
 binding = "KV"
 id = "fc76f72eceef4fc98e637827c9f7f977"
+
+# Activity log storage. Optional: with no `DB` binding the worker falls back to
+# the legacy `log:` KV ring buffer, which costs a second KV write for every
+# delivered message. Uncomment with the id from `wrangler d1 create mailpal`,
+# using the same database as the dashboard in ../wrangler.jsonc.
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "mailpal"
+# database_id = "<the id wrangler printed>"

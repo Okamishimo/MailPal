@@ -1,10 +1,15 @@
-import type { KVNamespace } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 
 declare global {
 	namespace App {
 		interface Platform {
 			env: {
 				KV: KVNamespace;
+				/**
+				 * Activity log database. Optional: without it the dashboard reads and
+				 * writes the legacy `log:` KV ring buffer instead. See wrangler.jsonc.
+				 */
+				DB?: D1Database;
 				AUTH_PASSWORD?: string;
 				DEMO_MODE?: string;
 				/** Optional dedicated secret for sealing session cookies; falls back to AUTH_PASSWORD. */
@@ -23,6 +28,8 @@ declare global {
 		}
 		interface Locals {
 			kv: KVNamespace;
+			/** Absent in demo mode and whenever the `DB` binding is not configured. */
+			db?: D1Database;
 			authMode: 'password' | 'cloudflare-access';
 			authenticated: boolean;
 			apiTokenAuthenticated?: boolean;

@@ -9,5 +9,23 @@
 			"binding": "KV",
 			"id": "fc76f72eceef4fc98e637827c9f7f977"
 		}
+	],
+	// Activity log storage. Optional: with no `DB` binding the app falls back to
+	// the legacy `log:` KV ring buffer, which costs a second KV write for every
+	// delivered message. To enable it, run
+	//
+	//   npx wrangler d1 create mailpal
+	//
+	// then uncomment the block below with the id wrangler prints, repeat it in
+	// email-worker/wrangler.toml, and apply the schema (migrations live in
+	// ./migrations, which is wrangler's default):
+	//
+	//   npx wrangler d1 migrations apply mailpal --remote
+	"d1_databases": [
+		// {
+		// 	"binding": "DB",
+		// 	"database_name": "mailpal",
+		// 	"database_id": "<the id wrangler printed>"
+		// }
 	]
 }
