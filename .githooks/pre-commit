@@ -16,6 +16,20 @@ set -e
 # Run from the repository root regardless of where `git commit` was invoked.
 cd "$(git rev-parse --show-toplevel)"
 
+# `main` must stay at or behind `develop`: it only ever moves by fast-forwarding
+# to develop, so a commit made here would put history on main that develop does
+# not have. Checked first so it fails before the slow build below.
+# (During a rebase HEAD is detached and this reads "HEAD", so rebases pass.)
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "main" ]; then
+	echo "✗ pre-commit: refusing to commit directly on main." >&2
+	echo "  main must stay at or behind develop. Commit on develop instead:" >&2
+	echo "      git switch develop" >&2
+	echo "  Already committed here? Move it over with:" >&2
+	echo "      git switch -c develop-wip && git switch main && git reset --hard origin/main" >&2
+	exit 1
+fi
+
 echo "▶ pre-commit: type-checking the email worker…"
 npm --prefix email-worker run check
 

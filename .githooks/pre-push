@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# MailPal pre-push hook.
+#
+# Enforces the branch invariant: every commit on `main` must also be on
+# `develop`. main only ever moves by fast-forwarding to develop, so a main that
+# develop does not contain means something was committed, merged, or reset on
+# the wrong branch. pre-commit blocks the common case (a direct commit on main);
+# this catches everything else, because it inspects the exact sha being pushed.
+#
+# Installed via `git config core.hooksPath .githooks` (the root package.json
+# "prepare" script runs it on `npm install`).
+#
+# Bypass only in a genuine emergency with:  git push --no-verify
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Prefer the local develop; fall back to the remote-tracking copy on a fresh
+# clone that has not checked develop out yet.
+if git rev-parse --verify --quiet develop >/dev/null; then
+	develop=develop
+elif git rev-parse --verify --quiet origin/develop >/dev/null; then
+	develop=origin/develop
+else
+	develop=
+fi
+
+status=0
+
+# stdin gives one line per ref being pushed: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+	if [ "$remote_ref" != "refs/heads/main" ]; then
+		continue
+	fi
+
+	# A branch deletion sends an all-zero sha, which is not a commit.
+	if ! git rev-parse --verify --quiet "$local_sha^{commit}" >/dev/null; then
+		continue
+	fi
+
+	if [ -z "$develop" ]; then
+		echo "✗ pre-push: no develop branch found to check main against." >&2
+		status=1
+		continue
+	fi
+
+	if ! git merge-base --is-ancestor "$local_sha" "$develop"; then
+		echo "✗ pre-push: main would be ahead of $develop." >&2
+		echo "  These commits are on main but not on $develop:" >&2
+		git log --oneline "$develop..$local_sha" | sed 's/^/      /' >&2
+		echo "  Merge them into $develop first, then fast-forward main to it:" >&2
+		echo "      git switch $develop && git merge main" >&2
+		status=1
+	fi
+done
+
+if [ "$status" -eq 0 ]; then
+	echo "✓ pre-push: main is at or behind ${develop:-develop}."
+fi
+
+exit "$status"
