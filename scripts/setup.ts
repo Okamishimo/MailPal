@@ -5,6 +5,10 @@
  * Clones the repo, creates a Cloudflare KV namespace, deploys the email worker
  * and the Pages dashboard — all in one go.
  *
+ * The optional D1 database for the activity log is not provisioned here; the
+ * generated configs carry the binding commented out, and SETUP.md Step 4 has
+ * the two commands that enable it.
+ *
  * Usage:
  *   bun run https://raw.githubusercontent.com/betahuhn/mailpal/main/scripts/setup.ts
  */
@@ -438,6 +442,15 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 [[kv_namespaces]]
 binding = "KV"
 id = "${kvId}"
+
+# Activity log storage. Optional: without a DB binding the activity log falls
+# back to a KV ring buffer, which costs a second KV write per message. Create
+# the database with \`wrangler d1 create mailpal\`, apply \`migrations/\` with
+# \`wrangler d1 migrations apply mailpal --remote\`, then uncomment:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "mailpal"
+# database_id = "<the id wrangler printed>"
 `;
 
   const workerConfig = `name = "mailpal-email-worker"
@@ -448,6 +461,15 @@ compatibility_flags = ["nodejs_compat"]
 [[kv_namespaces]]
 binding = "KV"
 id = "${kvId}"
+
+# Activity log storage. Optional: without a DB binding the activity log falls
+# back to a KV ring buffer, which costs a second KV write per message. Create
+# the database with \`wrangler d1 create mailpal\`, apply \`migrations/\` with
+# \`wrangler d1 migrations apply mailpal --remote\`, then uncomment:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "mailpal"
+# database_id = "<the id wrangler printed>"
 `;
 
   const rootFile = join(repoPath, "wrangler.toml");

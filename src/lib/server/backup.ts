@@ -1,4 +1,4 @@
-import type { KVNamespace } from '@cloudflare/workers-types';
+import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import type {
 	AliasConfig,
 	BackupEntry,
@@ -15,7 +15,13 @@ import {
 	validateGlobalSenderBlocklist
 } from '../sender-rules.js';
 import { getMany, listKeys, runInBatches } from '../kv-batch.js';
-import { CASCADE_PREFIX } from '../kv.js';
+import { CASCADE_PREFIX, LOG_PREFIX, parseLog, splitLogKey } from '../kv.js';
+import {
+	ALIAS_ACTIVITY_LIMIT,
+	clearAllActivity,
+	listActivityForBackup,
+	replaceAliasActivity
+} from './activity.js';
 
 export const BACKUP_FORMAT = 'mailpal-backup' as const;
 export const BACKUP_VERSION = 1 as const;
@@ -278,12 +284,45 @@ async function readEntries(kv: KVNamespace, keys: string[]): Promise<BackupEntry
 	});
 }
 
-export async function createBackup(kv: KVNamespace): Promise<MailPalBackup> {
+/**
+ * Fold D1 activity into the `log:` entries read from KV.
+ *
+ * The backup format is unchanged — activity still travels as one `log:` entry
+ * per alias holding a JSON array — so a backup taken before D1 restores into a
+ * D1 deployment and vice versa. An alias whose history sits in both stores has
+ * the two merged, which is what the dashboard shows for it too.
+ */
+async function withActivityEntries(
+	db: D1Database,
+	entries: BackupEntry[]
+): Promise<BackupEntry[]> {
+	const activity = await listActivityForBackup(db);
+	if (activity.size === 0) return entries;
+
+	const byKey = new Map(entries.map((entry) => [entry.key, entry]));
+	for (const [alias, rows] of activity) {
+		const key = `${LOG_PREFIX}${alias}`;
+		const merged = [...rows, ...parseLog(byKey.get(key)?.value)]
+			.sort((a, b) => b.at - a.at)
+			.slice(0, ALIAS_ACTIVITY_LIMIT);
+		byKey.set(key, { key, value: JSON.stringify(merged) });
+	}
+
+	// listManagedKeys returns sorted keys and the checksum covers the array, so
+	// the merged entries have to land back in that same order.
+	return [...byKey.values()].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+}
+
+export async function createBackup(
+	kv: KVNamespace,
+	db?: D1Database
+): Promise<MailPalBackup> {
 	const keys = await listManagedKeys(kv);
-	if (keys.length > MAX_BACKUP_ENTRIES) {
+	const kvEntries = await readEntries(kv, keys);
+	const entries = db ? await withActivityEntries(db, kvEntries) : kvEntries;
+	if (entries.length > MAX_BACKUP_ENTRIES) {
 		throw new Error(`資料筆數超過單次備份上限（${MAX_BACKUP_ENTRIES} 筆）`);
 	}
-	const entries = await readEntries(kv, keys);
 	return {
 		format: BACKUP_FORMAT,
 		version: BACKUP_VERSION,
@@ -342,7 +381,8 @@ export async function validateBackup(input: unknown): Promise<BackupValidationRe
 export async function restoreBackup(
 	kv: KVNamespace,
 	backup: MailPalBackup,
-	mode: BackupImportMode
+	mode: BackupImportMode,
+	db?: D1Database
 ): Promise<RestoreSummary> {
 	// Cascade markers are transient resume state, so they are never exported —
 	// but a replace-mode restore swaps the dataset underneath them, which would
@@ -351,7 +391,21 @@ export async function restoreBackup(
 		mode === 'replace'
 			? [...(await listManagedKeys(kv)), ...(await listKeys(kv, CASCADE_PREFIX))]
 			: [];
-	await runInBatches(backup.entries, (entry) => kv.put(entry.key, entry.value));
+
+	// With a database bound, activity is restored into it rather than into KV —
+	// which is also how a pre-D1 account gets its history moved across.
+	const activityEntries = db ? backup.entries.filter((entry) => entry.key.startsWith(LOG_PREFIX)) : [];
+	const kvEntries = db
+		? backup.entries.filter((entry) => !entry.key.startsWith(LOG_PREFIX))
+		: backup.entries;
+
+	if (mode === 'replace') await clearAllActivity(db);
+	await runInBatches(kvEntries, (entry) => kv.put(entry.key, entry.value));
+	for (const entry of activityEntries) {
+		const alias = splitLogKey(entry.key);
+		if (!alias) continue;
+		await replaceAliasActivity(kv, db, alias.domain, alias.localPart, parseLog(entry.value));
+	}
 
 	const importedKeys = new Set(backup.entries.map((entry) => entry.key));
 	const staleKeys = mode === 'replace'

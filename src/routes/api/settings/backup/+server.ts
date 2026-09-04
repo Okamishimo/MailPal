@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		return json({ error: '備份只能從已登入的 Dashboard 操作' }, { status: 403 });
 	}
 	try {
-		const backup = await createBackup(locals.kv);
+		const backup = await createBackup(locals.kv, locals.db);
 		return new Response(JSON.stringify(backup, null, 2), {
 			headers: {
 				'Content-Type': 'application/json; charset=utf-8',
@@ -68,7 +68,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!validation.ok) return json({ error: validation.error }, { status: 400 });
 
 	try {
-		const summary = await restoreBackup(locals.kv, validation.backup, mode);
+		const summary = await restoreBackup(locals.kv, validation.backup, mode, locals.db);
 		return json({ ok: true, ...summary });
 	} catch (error) {
 		console.error('Backup restore failed', error);

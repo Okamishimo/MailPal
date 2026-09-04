@@ -36,7 +36,7 @@ async function listJsonValues<T>(kv: KVNamespace, prefix: string): Promise<T[]> 
 	});
 }
 
-function parseLog(value: string | null | undefined): LogEntry[] {
+export function parseLog(value: string | null | undefined): LogEntry[] {
 	let log: LogEntry[] = [];
 	try {
 		const parsed: unknown = value ? JSON.parse(value) : [];
@@ -95,6 +95,22 @@ export function logKey(domain: string, localPart: string): string {
 	return `${LOG_PREFIX}${domain}/${localPart}`;
 }
 
+/**
+ * The inverse of {@link logKey}.
+ *
+ * A domain never contains a slash, so the first one separates the two halves.
+ * A local part may hold further slashes — they are valid unquoted atext, and
+ * wildcard mode auto-creates whatever arrives — so splitting on the last slash
+ * instead would reject those aliases. Returns null for a key that names no
+ * alias at all, which is nothing the app itself writes.
+ */
+export function splitLogKey(key: string): { domain: string; localPart: string } | null {
+	const suffix = key.slice(LOG_PREFIX.length);
+	const slash = suffix.indexOf('/');
+	if (slash <= 0 || slash === suffix.length - 1) return null;
+	return { domain: suffix.slice(0, slash), localPart: suffix.slice(slash + 1) };
+}
+
 export async function getAlias(
 	kv: KVNamespace,
 	domain: string,
@@ -135,25 +151,10 @@ export async function deleteDestination(kv: KVNamespace, email: string): Promise
 }
 
 // ─── Activity log helpers ─────────────────────────────────────────────────────
-
-export async function getLog(
-	kv: KVNamespace,
-	domain: string,
-	localPart: string
-): Promise<LogEntry[]> {
-	const val = await kv.get(logKey(domain, localPart));
-	return parseLog(val);
-}
-
-/** Read all requested alias logs in bulk, preserving the input order. */
-export async function getLogs(
-	kv: KVNamespace,
-	aliases: Array<{ domain: string; localPart: string }>
-): Promise<LogEntry[][]> {
-	const keys = aliases.map((alias) => logKey(alias.domain, alias.localPart));
-	const values = await getMany(kv, keys);
-	return keys.map((key) => parseLog(values.get(key)));
-}
+//
+// Reading activity lives in `server/activity.ts`, which merges these legacy
+// `log:` keys with the D1 table. Only the key shape and the delete stay here,
+// since the domain cascade and the alias DELETE route both need them.
 
 export async function deleteLog(kv: KVNamespace, domain: string, localPart: string): Promise<void> {
 	await kv.delete(logKey(domain, localPart));

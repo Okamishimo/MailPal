@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type {
+	D1Database,
 	ExecutionContext,
 	ForwardableEmailMessage,
 	KVNamespace
@@ -71,6 +72,37 @@ export function asKV(kv: MemoryKV): KVNamespace {
 	return kv as unknown as KVNamespace;
 }
 
+/**
+ * In-memory stand-in for a D1 database. The delivery path only ever calls
+ * `prepare().bind().run()`, so that is the whole implemented surface; every
+ * statement is recorded so a test can assert the row that would be written.
+ */
+export class MemoryD1 {
+	statements: Array<{ sql: string; bindings: unknown[] }> = [];
+	/** When set, `run()` rejects — used to prove a failed insert still delivers. */
+	failure: Error | null = null;
+
+	prepare(sql: string) {
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const db = this;
+		return {
+			bind(...bindings: unknown[]) {
+				return {
+					async run() {
+						if (db.failure) throw db.failure;
+						db.statements.push({ sql, bindings });
+						return { success: true };
+					}
+				};
+			}
+		};
+	}
+}
+
+export function asD1(db: MemoryD1): D1Database {
+	return db as unknown as D1Database;
+}
+
 export const EMPTY_GLOBAL_BLOCKLIST: GlobalSenderBlocklist = {
 	blockedSenderAddresses: [],
 	blockedSenderDomains: []
@@ -122,10 +154,13 @@ export interface RunOptions {
 	forward?: (address: string) => Promise<unknown>;
 	/** Reuse an existing store instead of a fresh one. */
 	kv?: MemoryKV;
+	/** Bind a D1 database; omit it to exercise the legacy KV log fallback. */
+	db?: MemoryD1;
 }
 
 export interface RunResult {
 	kv: MemoryKV;
+	db?: MemoryD1;
 	forward: ReturnType<typeof vi.fn>;
 	setReject: ReturnType<typeof vi.fn>;
 }
@@ -180,10 +215,14 @@ export async function runEmail(options: RunOptions = {}): Promise<RunResult> {
 		props: {}
 	} as unknown as ExecutionContext;
 
-	await handleEmail(message, { KV: asKV(kv) } as Env, ctx);
+	const env = {
+		KV: asKV(kv),
+		...(options.db ? { DB: asD1(options.db) } : {})
+	} as Env;
+	await handleEmail(message, env, ctx);
 	await Promise.all(background);
 
-	return { kv, forward, setReject };
+	return { kv, db: options.db, forward, setReject };
 }
 
 export function readAlias(kv: MemoryKV, localPart = 'orders'): AliasConfig {

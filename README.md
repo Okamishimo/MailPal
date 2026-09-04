@@ -75,13 +75,13 @@ mailpal/                        ← SvelteKit dashboard → Cloudflare Pages
 └── email-worker/               ← Email handler       → Cloudflare Worker
 ```
 
-Both share one KV namespace. The **SvelteKit app** provides the management UI and a REST API for all alias, domain, tag, and destination operations. The **email worker** intercepts every incoming message on your domain and decides — based on KV state — whether to forward it, reject it, or auto-create a new alias in wildcard mode.
+Both share one KV namespace, and — optionally — one D1 database for the activity log. The **SvelteKit app** provides the management UI and a REST API for all alias, domain, tag, and destination operations. The **email worker** intercepts every incoming message on your domain and decides — based on KV state — whether to forward it, reject it, or auto-create a new alias in wildcard mode.
 
 When a message arrives:
 1. The worker looks up the alias in KV
 2. If no alias exists and wildcard mode is on: it auto-creates one
 3. It applies the global blocklist, alias block rules, and optional alias allowlist to Cloudflare's envelope sender
-4. If active and allowed: it forwards to the configured target inbox and appends an entry to the alias activity log
+4. If active and allowed: it forwards to the configured target inbox and records an entry in the activity log
 5. If disabled, filtered, expired, or over-limit: it rejects with a generic SMTP reason and logs bounded metadata explaining why
 
 ### Sender-authentication limitation
@@ -154,7 +154,33 @@ id = "YOUR_KV_NAMESPACE_ID"   # same ID as above
 
 ---
 
-#### 3. Deploy the email worker
+#### 3. Create a D1 database for the activity log
+
+Optional but recommended. Without it the activity log falls back to KV, which
+costs a second KV write per message — and the Workers Free plan allows 1,000 KV
+writes a day, capping the service at roughly 500 messages a day. D1 allows
+100,000 row writes a day and the insert needs no prior read.
+
+```bash
+wrangler d1 create mailpal
+wrangler d1 migrations apply mailpal --remote
+```
+
+Add the printed `database_id` to **both** wrangler config files:
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "mailpal"
+database_id = "YOUR_D1_DATABASE_ID"
+```
+
+Adding this later to a running install loses nothing: reads merge both stores,
+and `POST /api/settings/activity/migrate` moves the old KV entries across.
+
+---
+
+#### 4. Deploy the email worker
 
 ```bash
 cd email-worker
@@ -165,7 +191,7 @@ Note the worker name — it defaults to `mailpal-email-worker`.
 
 ---
 
-#### 4. Configure Cloudflare Email Routing
+#### 5. Configure Cloudflare Email Routing
 
 1. Go to **Cloudflare dashboard → your domain → Email → Email Routing**
 2. Enable Email Routing if not already active
@@ -179,7 +205,7 @@ Note the worker name — it defaults to `mailpal-email-worker`.
 
 ---
 
-#### 5. Deploy the dashboard
+#### 6. Deploy the dashboard
 
 ```bash
 npm run build
@@ -190,7 +216,7 @@ Wrangler will create a Pages project on first deploy and give you a `*.pages.dev
 
 ---
 
-#### 6. Set a login password *(optional)*
+#### 7. Set a login password *(optional)*
 
 ```bash
 wrangler pages secret put AUTH_PASSWORD
@@ -201,7 +227,7 @@ Without this secret, the dashboard is unprotected. Use [Cloudflare Access](#prot
 
 ---
 
-#### 7. Protect with Cloudflare Access *(optional alternative to password)*
+#### 8. Protect with Cloudflare Access *(optional alternative to password)*
 
 1. Go to **Cloudflare dashboard → Zero Trust → Access → Applications**
 2. Click **Add an application → Self-hosted**
@@ -248,6 +274,7 @@ After adding the domain, make sure the catch-all rule in Cloudflare Email Routin
 |---|---|---|
 | `AUTH_PASSWORD` | Pages secret | Password for dashboard login. Omit to disable password auth. |
 | `KV` | `wrangler.toml` binding | KV namespace shared between the dashboard and the email worker. |
+| `DB` | `wrangler.toml` binding | D1 database holding the activity log, shared between the two. Omit it to keep the log in KV. |
 
 ---
 
@@ -259,8 +286,10 @@ After adding the domain, make sure the catch-all rule in Cloudflare Email Routin
 | `alias:{domain}/{localPart}` | `AliasConfig` JSON |
 | `destination:{email}` | `DestinationAddress` JSON |
 | `tag:{name}` | `Tag` JSON |
-| `log:{domain}/{localPart}` | `LogEntry[]` JSON — ring buffer, last 50 entries |
+| `log:{domain}/{localPart}` | `LogEntry[]` JSON — ring buffer, last 50 entries. Legacy: written only without a `DB` binding, still read either way |
 | `settings:onboarded` | `"1"` when the onboarding flow has been completed |
 | `settings:sender-blocklist` | Global exact-address and domain sender block rules |
 
 You can inspect or edit values directly in the Cloudflare dashboard under **Workers & Pages → KV → your namespace**.
+
+With a `DB` binding configured, activity lives in the D1 `activity` table instead — see `migrations/0001_create_activity.sql` and the schema reference in [SETUP.md](SETUP.md).

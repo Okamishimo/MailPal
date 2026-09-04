@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { deleteAlias, deleteLog, getAlias, putAlias } from '$lib/kv.js';
+import { deleteAlias, getAlias, putAlias } from '$lib/kv.js';
+import { deleteAliasActivity } from '$lib/server/activity.js';
 import { normalizeSenderRules, validateSenderRules } from '$lib/sender-rules.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -87,7 +88,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 
 	await Promise.all([
 		deleteAlias(locals.kv, params.domain, params.localPart),
-		deleteLog(locals.kv, params.domain, params.localPart)
+		deleteAliasActivity(locals.kv, locals.db, params.domain, params.localPart)
 	]);
 	return new Response(null, { status: 204 });
 };

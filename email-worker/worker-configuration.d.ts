@@ -6,6 +6,14 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		KV: KVNamespace;
+		/**
+		 * Activity log database. Optional by hand: the `[[d1_databases]]` block in
+		 * wrangler.toml ships commented out, and the worker falls back to the
+		 * legacy `log:` KV ring buffer when the binding is absent. Regenerating
+		 * this file after uncommenting that block makes it required, which the
+		 * worker's `env.DB ? … : …` checks still satisfy.
+		 */
+		DB?: D1Database;
 	}
 }
 interface Env extends Cloudflare.Env {}
