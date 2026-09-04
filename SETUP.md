@@ -400,7 +400,12 @@ curl -X POST https://your-dashboard.pages.dev/api/settings/activity/migrate \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
-Each call moves up to 100 aliases and reports `{ migrated, aliases, complete }`.
+Each call moves up to 100 aliases and reports
+`{ migrated, aliases, failed, complete }`. Entries are appended, so anything the
+worker has already written to D1 since you added the binding stays put. A `log:`
+key is only deleted once its rows are in the database — `failed` counts the
+aliases whose insert did not land, and they are left for the next call.
+
 Exporting a backup and re-importing it does the same thing.
 
 ---

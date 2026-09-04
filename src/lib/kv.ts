@@ -95,6 +95,22 @@ export function logKey(domain: string, localPart: string): string {
 	return `${LOG_PREFIX}${domain}/${localPart}`;
 }
 
+/**
+ * The inverse of {@link logKey}.
+ *
+ * A domain never contains a slash, so the first one separates the two halves.
+ * A local part may hold further slashes — they are valid unquoted atext, and
+ * wildcard mode auto-creates whatever arrives — so splitting on the last slash
+ * instead would reject those aliases. Returns null for a key that names no
+ * alias at all, which is nothing the app itself writes.
+ */
+export function splitLogKey(key: string): { domain: string; localPart: string } | null {
+	const suffix = key.slice(LOG_PREFIX.length);
+	const slash = suffix.indexOf('/');
+	if (slash <= 0 || slash === suffix.length - 1) return null;
+	return { domain: suffix.slice(0, slash), localPart: suffix.slice(slash + 1) };
+}
+
 export async function getAlias(
 	kv: KVNamespace,
 	domain: string,

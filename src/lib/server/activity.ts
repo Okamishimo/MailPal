@@ -2,7 +2,7 @@ import type { D1Database, KVNamespace } from '@cloudflare/workers-types';
 import type { LogEntry } from '../types.js';
 import { ACTIVITY_INSERT_SQL, activityInsertBindings, rowToLogEntry, type ActivityRow } from '../activity.js';
 import { chunk, getMany, listKeys } from '../kv-batch.js';
-import { LOG_PREFIX, deleteLog, logKey, parseLog } from '../kv.js';
+import { LOG_PREFIX, deleteLog, logKey, parseLog, splitLogKey } from '../kv.js';
 
 /**
  * Reads over the activity log.
@@ -27,13 +27,6 @@ export const ALIAS_ACTIVITY_LIMIT = 50;
 
 const ROW_COLUMNS =
 	'domain, local_part, at, action, from_addr, to_addr, reason, matched_rule, subject, header_from, cc';
-
-function splitLogKey(key: string): { domain: string; localPart: string } | null {
-	const suffix = key.slice(LOG_PREFIX.length);
-	const slash = suffix.indexOf('/');
-	if (slash <= 0 || slash !== suffix.lastIndexOf('/') || slash === suffix.length - 1) return null;
-	return { domain: suffix.slice(0, slash), localPart: suffix.slice(slash + 1) };
-}
 
 /**
  * Run a read against D1, degrading to an empty result instead of throwing.
@@ -220,12 +213,52 @@ export async function listActivityForBackup(
 }
 
 /**
+ * Append entries for one alias, reporting whether every row landed.
+ *
+ * Nothing existing is touched, so this is the path for callers that are adding
+ * to a history rather than swapping one out. The return value matters because
+ * both callers go on to delete the entries' only other copy — the legacy KV
+ * key — and must not do that on top of a failed insert.
+ */
+async function insertAliasActivity(
+	db: D1Database,
+	domain: string,
+	localPart: string,
+	entries: LogEntry[]
+): Promise<boolean> {
+	// Oldest first, so the autoincrementing id agrees with `at` and ties break
+	// the same way they would have if the entries had arrived as mail.
+	const ordered = [...entries].sort((a, b) => a.at - b.at);
+	let inserted = true;
+	for (const group of chunk(ordered, INSERT_BATCH_SIZE)) {
+		try {
+			await db.batch(
+				group.map((entry) =>
+					db.prepare(ACTIVITY_INSERT_SQL).bind(...activityInsertBindings(domain, localPart, entry))
+				)
+			);
+		} catch (error) {
+			inserted = false;
+			console.error(JSON.stringify({
+				message: 'Activity insert failed for one batch',
+				alias: `${localPart}@${domain}`,
+				error: error instanceof Error ? error.message : String(error)
+			}));
+		}
+	}
+	return inserted;
+}
+
+/**
  * Overwrite one alias's activity with the entries from a backup.
  *
  * This mirrors what restoring a `log:` key used to do — a KV put replaced the
  * whole ring buffer — so importing the same backup twice cannot duplicate
  * anything. When D1 holds the data the legacy key is dropped as well, which is
  * what makes a restore consolidate a pre-D1 account into one store.
+ *
+ * Only the restore has any business clearing what is already there; the
+ * migration appends through {@link insertAliasActivity} instead.
  */
 export async function replaceAliasActivity(
 	kv: KVNamespace,
@@ -244,26 +277,12 @@ export async function replaceAliasActivity(
 		localPart
 	]);
 
-	// Oldest first, so the autoincrementing id agrees with `at` and ties break
-	// the same way they would have if the entries had arrived as mail.
-	const ordered = [...entries].sort((a, b) => a.at - b.at);
-	for (const group of chunk(ordered, INSERT_BATCH_SIZE)) {
-		try {
-			await db.batch(
-				group.map((entry) =>
-					db.prepare(ACTIVITY_INSERT_SQL).bind(...activityInsertBindings(domain, localPart, entry))
-				)
-			);
-		} catch (error) {
-			console.error(JSON.stringify({
-				message: 'Activity restore failed for one batch',
-				alias: `${localPart}@${domain}`,
-				error: error instanceof Error ? error.message : String(error)
-			}));
-		}
+	// Dropping the legacy key is what consolidates a pre-D1 account into one
+	// store, but it can only follow a clean insert: a failed batch with the key
+	// already gone would leave the entries in neither store.
+	if (await insertAliasActivity(db, domain, localPart, entries)) {
+		await deleteLog(kv, domain, localPart);
 	}
-
-	await deleteLog(kv, domain, localPart);
 }
 
 /** Drop every activity row — the replace-mode restore's clean slate. */
@@ -277,9 +296,9 @@ export async function clearAllActivity(db: D1Database | undefined): Promise<void
 /**
  * Legacy keys moved per request.
  *
- * Each one costs a bulk read, a delete and an insert batch against D1, and a KV
- * delete. The free plan allows 1,000 subrequests to Cloudflare services per
- * invocation, so this stays well inside half the budget.
+ * Each one costs a bulk read, an insert batch against D1 and a KV delete. The
+ * free plan allows 1,000 subrequests to Cloudflare services per invocation, so
+ * this stays well inside half the budget.
  */
 export const MAX_ACTIVITY_MIGRATION_KEYS = 100;
 
@@ -288,6 +307,8 @@ export interface ActivityMigrationResult {
 	migrated: number;
 	/** Aliases whose legacy key was cleared by this call. */
 	aliases: number;
+	/** Aliases whose insert failed, leaving the legacy key in place to retry. */
+	failed: number;
 	complete: boolean;
 }
 
@@ -298,6 +319,13 @@ export interface ActivityMigrationResult {
  * the leftover keys, which otherwise stay in every backup and cost a KV list on
  * each activity page load. The caller repeats until `complete` comes back true;
  * every page deletes the keys it moved, so a retry resumes on its own.
+ *
+ * The entries are appended, never swapped in: by the time anyone runs this the
+ * database may hold weeks of rows the worker has written since the binding was
+ * added, and clearing the alias first would trade that history for the 50
+ * entries the ring buffer kept. The cost of appending is that a key whose rows
+ * landed but whose delete then failed is re-inserted by the next call — a
+ * narrow window, and duplicated entries are recoverable where lost ones are not.
  */
 export async function migrateLegacyActivity(
 	kv: KVNamespace,
@@ -309,25 +337,34 @@ export async function migrateLegacyActivity(
 		limit: MAX_ACTIVITY_MIGRATION_KEYS + 1
 	});
 	const keys = page.keys.slice(0, MAX_ACTIVITY_MIGRATION_KEYS).map((key) => key.name);
-	const complete = page.list_complete && page.keys.length <= MAX_ACTIVITY_MIGRATION_KEYS;
-	if (keys.length === 0) return { migrated: 0, aliases: 0, complete: true };
+	const listed = page.list_complete && page.keys.length <= MAX_ACTIVITY_MIGRATION_KEYS;
+	if (keys.length === 0) return { migrated: 0, aliases: 0, failed: 0, complete: true };
 
 	const values = await getMany(kv, keys);
 	let migrated = 0;
 	let aliases = 0;
+	let failed = 0;
 	for (const key of keys) {
 		const alias = splitLogKey(key);
 		if (!alias) {
 			// A key that does not name an alias has nowhere to go in D1, and
-			// leaving it would stall every later page behind it.
+			// leaving it would stall every later page behind it. Nothing the app
+			// writes takes this shape — logKey always emits a domain and a slash.
 			await kv.delete(key);
 			continue;
 		}
 		const entries = parseLog(values.get(key));
-		// replaceAliasActivity drops the KV key once the rows are in.
-		await replaceAliasActivity(kv, db, alias.domain, alias.localPart, entries);
+		if (!(await insertAliasActivity(db, alias.domain, alias.localPart, entries))) {
+			// Keep the key: it is the only remaining copy of these entries, and
+			// the next call retries it.
+			failed += 1;
+			continue;
+		}
+		await kv.delete(key);
 		migrated += entries.length;
 		aliases += 1;
 	}
-	return { migrated, aliases, complete };
+	// Keys left behind by a failed insert are still waiting, so the caller has
+	// more to do even once the listing has no further pages.
+	return { migrated, aliases, failed, complete: listed && failed === 0 };
 }

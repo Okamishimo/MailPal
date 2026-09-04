@@ -15,7 +15,7 @@ import {
 	validateGlobalSenderBlocklist
 } from '../sender-rules.js';
 import { getMany, listKeys, runInBatches } from '../kv-batch.js';
-import { CASCADE_PREFIX, LOG_PREFIX, parseLog } from '../kv.js';
+import { CASCADE_PREFIX, LOG_PREFIX, parseLog, splitLogKey } from '../kv.js';
 import {
 	ALIAS_ACTIVITY_LIMIT,
 	clearAllActivity,
@@ -378,14 +378,6 @@ export async function validateBackup(input: unknown): Promise<BackupValidationRe
 	};
 }
 
-/** Split a `log:` backup key back into the alias it belongs to. */
-function aliasFromLogKey(key: string): { domain: string; localPart: string } | null {
-	const suffix = key.slice(LOG_PREFIX.length);
-	const slash = suffix.indexOf('/');
-	if (slash <= 0 || slash === suffix.length - 1) return null;
-	return { domain: suffix.slice(0, slash), localPart: suffix.slice(slash + 1) };
-}
-
 export async function restoreBackup(
 	kv: KVNamespace,
 	backup: MailPalBackup,
@@ -410,7 +402,7 @@ export async function restoreBackup(
 	if (mode === 'replace') await clearAllActivity(db);
 	await runInBatches(kvEntries, (entry) => kv.put(entry.key, entry.value));
 	for (const entry of activityEntries) {
-		const alias = aliasFromLogKey(entry.key);
+		const alias = splitLogKey(entry.key);
 		if (!alias) continue;
 		await replaceAliasActivity(kv, db, alias.domain, alias.localPart, parseLog(entry.value));
 	}
