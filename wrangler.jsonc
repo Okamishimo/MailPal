@@ -22,10 +22,10 @@
 	//
 	//   npx wrangler d1 migrations apply mailpal --remote
 	"d1_databases": [
-		// {
-		// 	"binding": "DB",
-		// 	"database_name": "mailpal",
-		// 	"database_id": "<the id wrangler printed>"
-		// }
+		{
+			"binding": "DB",
+			"database_name": "mailpal",
+			"database_id": "4f4101e5-94d1-40cb-8a6e-007ed5497d5c"
+		}
 	]
 }

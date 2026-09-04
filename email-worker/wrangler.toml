@@ -19,7 +19,7 @@ id = "fc76f72eceef4fc98e637827c9f7f977"
 # the legacy `log:` KV ring buffer, which costs a second KV write for every
 # delivered message. Uncomment with the id from `wrangler d1 create mailpal`,
 # using the same database as the dashboard in ../wrangler.jsonc.
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "mailpal"
-# database_id = "<the id wrangler printed>"
+[[d1_databases]]
+binding = "DB"
+database_name = "mailpal"
+database_id = "4f4101e5-94d1-40cb-8a6e-007ed5497d5c"
